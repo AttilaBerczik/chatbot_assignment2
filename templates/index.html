@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dockerized RAG Chatbot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #e3f0ff 0%, #f9f9f9 100%);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            height: 80vh;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: #007bff;
+            color: #fff;
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+        .chat-header .fa-robot {
+            font-size: 1.5em;
+        }
+        .chat-box {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f6f8fa;
+            border-bottom: 1px solid #e3e3e3;
+        }
+        .message {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 18px;
+        }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #e2e2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 1.3em;
+        }
+        .user-message .avatar {
+            background: #007bff;
+            color: #fff;
+            margin-left: 10px;
+            margin-right: 0;
+        }
+        .bubble {
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 75%;
+            line-height: 1.5;
+            font-size: 1em;
+        }
+        .bot-message .bubble {
+            background: #e2e2e2;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+        .user-message {
+            flex-direction: row-reverse;
+        }
+        .user-message .bubble {
+            background: #007bff;
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .input-container {
+            display: flex;
+            padding: 16px;
+            background: #f9f9f9;
+            border-top: 1px solid #e3e3e3;
+        }
+        .input-container input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 10px;
+            outline: none;
+            font-size: 1em;
+            background: #f6f8fa;
+        }
+        .input-container button {
+            padding: 0 24px;
+            border: none;
+            background: #007bff;
+            color: #fff;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+        .input-container button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <i class="fa-solid fa-robot"></i>
+            Dockerized RAG Chatbot
+        </div>
+        <div class="chat-box" id="chat-box">
+            <div class="message bot-message">
+                <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                <div class="bubble">Hello! I'm your Docker RAG chatbot. Ask me anything about Norway.</div>
+            </div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="user-input" placeholder="Type your message...">
+            <button id="send-button"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('send-button').addEventListener('click', sendMessage);
+        document.getElementById('user-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const userInput = document.getElementById('user-input');
+            const userMessage = userInput.value.trim();
+
+            if (userMessage === '') {
+                return;
+            }
+
+            // Display user message
+            const chatBox = document.getElementById('chat-box');
+            const userDiv = document.createElement('div');
+            userDiv.classList.add('message', 'user-message');
+            userDiv.innerHTML = `
+                <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="bubble">${userMessage}</div>
+            `;
+            chatBox.appendChild(userDiv);
+            userInput.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Display "Typing..." indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.classList.add('message', 'bot-message');
+            typingIndicator.innerHTML = `
+                <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                <div class="bubble">Typing...</div>
+            `;
+            chatBox.appendChild(typingIndicator);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Send to backend
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: userMessage }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Remove typing indicator
+                chatBox.removeChild(typingIndicator);
+
+                // Display bot response
+                const botDiv = document.createElement('div');
+                botDiv.classList.add('message', 'bot-message');
+                botDiv.innerHTML = `
+                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bubble">${data.answer}</div>
+                `;
+                chatBox.appendChild(botDiv);
+            } catch (error) {
+                console.error('Error:', error);
+                // Remove typing indicator
+                chatBox.removeChild(typingIndicator);
+
+                const errorDiv = document.createElement('div');
+                errorDiv.classList.add('message', 'bot-message');
+                errorDiv.innerHTML = `
+                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bubble">Error: ${error.message}. Could not get a response.</div>
+                `;
+                chatBox.appendChild(errorDiv);
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
