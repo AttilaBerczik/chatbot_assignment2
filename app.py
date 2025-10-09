@@ -112,12 +112,13 @@ def initialize_chain():
         model = AutoModelForCausalLM.from_pretrained(
             LLM_LOCAL_DIR,
             trust_remote_code=True,
-            torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
+            dtype=torch.float16 if device.startswith("cuda") else torch.float32,
             device_map=device if device.startswith("cuda") else None,
             low_cpu_mem_usage=True
         )
 
         # Create pipeline with GPU settings
+        # Note: When using device_map, don't specify device in pipeline
         generator = pipeline(
             "text-generation",
             model=model,
@@ -126,7 +127,6 @@ def initialize_chain():
             temperature=0.7,
             top_p=0.9,
             do_sample=True,
-            device=device if device.startswith("cuda") else -1,
             return_full_text=False
         )
 
