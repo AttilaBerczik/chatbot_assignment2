@@ -22,6 +22,8 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 db = FAISS.from_documents(texts, embeddings)
 
 # Save the vector store to a local file
-db.save_local("faiss_index")
+FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+os.makedirs("faiss_data", exist_ok=True)
+db.save_local(FAISS_INDEX_PATH)
 
-print("Vector store created and saved to faiss_index.")
+print("Vector store created and saved to faiss_data/faiss_index.")
