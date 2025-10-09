@@ -8,3 +8,6 @@ flask
 langchain-huggingface
 requests
 beautifulsoup4
+torch
+transformers
+accelerate
