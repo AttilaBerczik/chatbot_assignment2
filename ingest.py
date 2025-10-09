@@ -50,8 +50,12 @@ texts = text_splitter.split_documents(all_documents)
 # 5️⃣ Convert text into embeddings
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# 6️⃣ Build and save FAISS index
+# Create a FAISS vector store from the documents
 db = FAISS.from_documents(texts, embeddings)
-db.save_local("faiss_index")
 
-print("✅ Vector store created and saved to faiss_index.")
+# Save the vector store to a local file
+FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+os.makedirs("faiss_data", exist_ok=True)
+db.save_local(FAISS_INDEX_PATH)
+
+print("Vector store created and saved to faiss_data/faiss_index.")
