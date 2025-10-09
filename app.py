@@ -15,6 +15,7 @@ app = Flask(__name__)
 qa_chain = None
 tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
 MAX_TOKENS = 1024
+FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 
 
 class TruncatingHuggingFacePipeline(HuggingFacePipeline):
@@ -46,8 +47,9 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
             truncated_prompt = self._tokenizer.decode(input_ids)
             return super().__call__(truncated_prompt, stop=stop)
 
-    def _call(self, prompt, stop=None):
-        return self.__call__(prompt, stop=stop)
+
+def _call(self, prompt, stop=None):
+    return self.__call__(prompt, stop=stop)
 
 
 def initialize_chain():
@@ -55,7 +57,7 @@ def initialize_chain():
     global qa_chain, db, llm
     try:
         # Check if the FAISS index exists
-        if not os.path.exists("faiss_index"):
+        if not os.path.exists(FAISS_INDEX_PATH):
             return "FAISS index not found. Please run the ingestion script first."
 
         # Load the embeddings model
@@ -64,7 +66,7 @@ def initialize_chain():
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
-        db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+        db = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
         # Initialize Hugging Face LLM pipeline
         print("Initializing Hugging Face LLM pipeline...")
