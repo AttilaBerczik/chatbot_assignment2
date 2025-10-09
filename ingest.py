@@ -9,6 +9,10 @@ from langchain_community.vectorstores import FAISS
 # Set a polite User-Agent so Wikipedia doesn’t block our requests
 os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
 
+# Model paths (same as in app.py - use pre-downloaded models)
+MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
+EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+
 def get_wiki_links(base_url, limit=0):
     """Extract internal Wikipedia links from a page."""
     html = requests.get(base_url, headers={"User-Agent": os.environ["USER_AGENT"]}).text
@@ -47,8 +51,9 @@ print(f"Loaded {len(all_documents)} total documents.")
 text_splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
 texts = text_splitter.split_documents(all_documents)
 
-# 5️⃣ Convert text into embeddings
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# 5️⃣ Convert text into embeddings using the same model as app.py
+print(f"Loading embeddings model from {EMB_LOCAL_DIR}...")
+embeddings = HuggingFaceEmbeddings(model_name=EMB_LOCAL_DIR, model_kwargs={'device': 'cpu'})
 
 # Create a FAISS vector store from the documents
 db = FAISS.from_documents(texts, embeddings)
