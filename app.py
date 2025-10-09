@@ -108,7 +108,7 @@ def initialize_chain():
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
             trust_remote_code=True,
-            torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
+            dtype=torch.float16 if device.startswith("cuda") else torch.float32,
             device_map=device if device.startswith("cuda") else None,
             low_cpu_mem_usage=True
         )
