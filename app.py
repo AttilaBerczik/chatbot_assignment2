@@ -23,7 +23,7 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
         self._tokenizer = tokenizer
         self._max_tokens = max_tokens
 
-    def __call__(self, prompt, stop=None):docker stop <container_id>
+    def __call__(self, prompt, stop=None):
         # Handle batch, dict, or string
         if isinstance(prompt, list):
             truncated_list = []

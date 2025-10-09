@@ -37,7 +37,7 @@ docker run -p 5000:5000 -v $(pwd)/faiss_data:/app/faiss_data llm-chatbot-app
 ## 7. Access the App via SSH Tunnel
 - On your local machine, start an SSH tunnel in a new terminal:
   ```bash
-  ssh -L 30123:localhost:5000 atber7969@vs-c1.cs.uit.no
+  ssh -L 30123:localhost:5000 username@vs-c1.cs.uit.no
   ```
 - Open your browser and go to:
   ```
