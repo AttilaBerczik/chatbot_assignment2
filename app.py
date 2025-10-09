@@ -47,9 +47,8 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
             truncated_prompt = self._tokenizer.decode(input_ids)
             return super().__call__(truncated_prompt, stop=stop)
 
-
-def _call(self, prompt, stop=None):
-    return self.__call__(prompt, stop=stop)
+    def _call(self, prompt, stop=None):
+        return self.__call__(prompt, stop=stop)
 
 
 def initialize_chain():
