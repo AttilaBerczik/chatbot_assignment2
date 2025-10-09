@@ -3,6 +3,7 @@ import os
 # Disable progress bars for cleaner output
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["HF_HUB_TIMEOUT"] = "300"  # 5 minute timeout
+os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://uit.no)"
 
 import torch
 from flask import Flask, render_template, request, jsonify
