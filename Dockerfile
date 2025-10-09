@@ -10,15 +10,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Preload Hugging Face models and embeddings into cache with BuildKit cache mounts
+# Set environment variables for model download
 ENV HF_HUB_DISABLE_PROGRESS_BARS=1 \
-    HF_HUB_TIMEOUT=300
+    HF_HUB_TIMEOUT=300 \
+    HF_MODELS_DIR=/app/models
 
-# Copy preload script and execute it
-COPY preload.py .
-RUN --mount=type=cache,id=huggingface-cache,target=/root/.cache/huggingface \
-    --mount=type=cache,id=torch-cache,target=/root/.cache/torch \
-    python preload.py
+# Copy download script and run it to download models during build
+COPY download_models.py .
+RUN python download_models.py
 
 # Copy the rest of the application files
 COPY . .

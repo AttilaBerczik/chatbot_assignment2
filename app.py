@@ -43,9 +43,13 @@ def get_device():
 
 device = get_device()
 
-# Model configuration
-MODEL_NAME = "Qwen/Qwen2-7B-Instruct"  # Using available Qwen model
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+# Model paths (downloaded during Docker build)
+MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
+LLM_LOCAL_DIR = os.path.join(MODELS_DIR, "Qwen2-7B-Instruct")
+EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+
+# Load tokenizer from pre-downloaded model
+tokenizer = AutoTokenizer.from_pretrained(LLM_LOCAL_DIR, trust_remote_code=True)
 MAX_TOKENS = 4096  # Increased for better context handling
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 
@@ -89,10 +93,10 @@ def initialize_chain():
         if not os.path.exists(FAISS_INDEX_PATH):
             return "FAISS index not found. Please run the ingestion script first."
 
-        # Load the embeddings model (on GPU if available)
+        # Load the embeddings model (from local path, on GPU if available)
         print("Initializing Hugging Face embeddings model...")
         embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-large-en-v1.5",
+            model_name=EMB_LOCAL_DIR,
             model_kwargs={'device': device}
         )
 
@@ -103,12 +107,12 @@ def initialize_chain():
         # Initialize Hugging Face LLM pipeline with GPU optimization
         print("Initializing Hugging Face LLM pipeline...")
         
-        # Load model with optimizations
-        print(f"Loading model {MODEL_NAME} on {device}...")
+        # Load model with optimizations from local path
+        print(f"Loading model from {LLM_LOCAL_DIR} on {device}...")
         model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME,
+            LLM_LOCAL_DIR,
             trust_remote_code=True,
-            dtype=torch.float16 if device.startswith("cuda") else torch.float32,
+            torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
             device_map=device if device.startswith("cuda") else None,
             low_cpu_mem_usage=True
         )

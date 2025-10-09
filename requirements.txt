@@ -11,3 +11,4 @@ beautifulsoup4
 torch
 transformers
 accelerate
+huggingface_hub
