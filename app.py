@@ -1,5 +1,9 @@
 import os
 
+# Disable progress bars for cleaner output
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["HF_HUB_TIMEOUT"] = "300"  # 5 minute timeout
+
 import torch
 from flask import Flask, render_template, request, jsonify
 from langchain.chains import ConversationalRetrievalChain
@@ -40,7 +44,7 @@ def get_device():
 device = get_device()
 
 # Model configuration
-MODEL_NAME = "Qwen/Qwen2.5-14B-Instruct"  # Larger model for better quality
+MODEL_NAME = "Qwen/Qwen2-7B-Instruct"  # Using available Qwen model
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 MAX_TOKENS = 4096  # Increased for better context handling
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
