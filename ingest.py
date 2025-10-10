@@ -79,6 +79,11 @@ if not main_title:
     else:
         main_title = extract_domain_name(base_url)
 
+# Clean up titles for Wikipedia pages, removing source suffix
+domain = extract_domain_name(base_url)
+if "wikipedia.org" in domain and " - " in main_title:
+    main_title = main_title.split(" - ")[0]
+
 print(f"Main topic: {main_title}")
 
 # 2️⃣ Get related links (crawl a few linked pages from the same domain)

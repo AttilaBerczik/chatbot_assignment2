@@ -210,16 +210,17 @@ def query():
             context = tokenizer.decode(context_tokens)
 
         # Improved prompt template for instruction-following models
-        template = """You are a helpful AI assistant. Use the following context to answer the question accurately and concisely. 
-        If there is nothing in your context that is relevant to the question, say "I don't know".
+        template = """You are a helpful AI assistant. Use the following context to answer the question accurately and concisely.
 
 Context:
 {context}
 
-Use the context above to answer the question accurately and concisely. 
-If there is nothing in your context that is relevant to the question, say "I don't know".
-Only provide the answer, do not reference the context in your answer, or say "based on the context".
-Provide the a short and concise answer.
+Instructions:
+- Answer the question using only the information from the context.
+- Do not mention, reference, or describe the context itself.
+- Do not explain how the answer was created.
+- Do not include notes, disclaimers, or meta-commentary of any kind.
+- If the context does not contain relevant information, say exactly: "I don't know."
 
 Question: {user_query}
 
