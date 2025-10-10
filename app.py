@@ -5,6 +5,7 @@ os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["HF_HUB_TIMEOUT"] = "300"  # 5 minute timeout
 
 import torch
+import json
 from flask import Flask, render_template, request, jsonify
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chains import LLMChain
@@ -153,6 +154,33 @@ def initialize_chain():
 def index():
     """Renders the main chat interface."""
     return render_template("index.html")
+
+@app.route("/topic", methods=["GET"])
+def get_topic():
+    """Returns the topic/subject of the ingested content."""
+    try:
+        metadata_path = os.path.join("faiss_data", "metadata.json")
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+            return jsonify({
+                "topic": metadata.get("base_topic", "the ingested content"),
+                "domain": metadata.get("domain", ""),
+                "url_count": len(metadata.get("all_urls", []))
+            })
+        else:
+            return jsonify({
+                "topic": "the ingested content",
+                "domain": "",
+                "url_count": 0
+            })
+    except Exception as e:
+        print(f"Error loading topic metadata: {e}")
+        return jsonify({
+            "topic": "the ingested content",
+            "domain": "",
+            "url_count": 0
+        })
 
 @app.route("/query", methods=["POST"])
 def query():

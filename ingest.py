@@ -1,6 +1,8 @@
 import os
 import requests
+import json
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -10,26 +12,80 @@ from langchain_community.vectorstores import FAISS
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 
-def get_wiki_links(base_url, limit=0):
-    """Extract internal Wikipedia links from a page."""
-    html = requests.get(base_url, headers={"User-Agent": os.environ["USER_AGENT"]}).text
-    soup = BeautifulSoup(html, "html.parser")
+def get_page_title(url):
+    """Extract the page title from HTML."""
+    try:
+        html = requests.get(url, headers={"User-Agent": os.environ.get("USER_AGENT", "Mozilla/5.0")}, timeout=10).text
+        soup = BeautifulSoup(html, "html.parser")
+        title = soup.find("title")
+        if title:
+            return title.get_text().strip()
+        # Fallback to h1
+        h1 = soup.find("h1")
+        if h1:
+            return h1.get_text().strip()
+    except:
+        pass
+    return None
 
-    links = set()
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith("/wiki/") and ":" not in href:  # Skip non-article links (like Help:, File:)
-            links.add("https://en.wikipedia.org" + href)
-        if len(links) >= limit:
-            break
-    return list(links)
+def get_links_from_page(base_url, limit=5):
+    """Extract internal links from any webpage (not just Wikipedia)."""
+    try:
+        html = requests.get(base_url, headers={"User-Agent": os.environ.get("USER_AGENT", "Mozilla/5.0")}, timeout=10).text
+        soup = BeautifulSoup(html, "html.parser")
 
-# 1️⃣ Starting page
+        base_domain = urlparse(base_url).netloc
+        links = set()
+
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            # Convert relative URLs to absolute
+            full_url = urljoin(base_url, href)
+            parsed = urlparse(full_url)
+
+            # Only include links from the same domain, skip anchors, javascript, etc.
+            if (parsed.netloc == base_domain and
+                parsed.scheme in ['http', 'https'] and
+                not parsed.path.endswith(('.pdf', '.jpg', '.png', '.gif', '.zip')) and
+                '#' not in parsed.path):
+                links.add(full_url)
+                if len(links) >= limit:
+                    break
+        return list(links)
+    except Exception as e:
+        print(f"Error extracting links from {base_url}: {e}")
+        return []
+
+def extract_domain_name(url):
+    """Extract a clean domain name from URL."""
+    parsed = urlparse(url)
+    domain = parsed.netloc
+    # Remove www. prefix
+    if domain.startswith('www.'):
+        domain = domain[4:]
+    return domain
+
+# 1️⃣ Starting page - YOU CAN CHANGE THIS TO ANY WEBSITE
 base_url = "https://en.wikipedia.org/wiki/Rickard_Sarby"
 
-# 2️⃣ Get related links (crawl a few linked Wikipedia pages)
-related_links = get_wiki_links(base_url, limit=5)
-urls = [base_url] + related_links  # Include the original Norway page
+print(f"Starting crawl from: {base_url}")
+
+# Get the title of the main page
+main_title = get_page_title(base_url)
+if not main_title:
+    # Fallback: extract from URL
+    if "/wiki/" in base_url:
+        main_title = base_url.split("/wiki/")[-1].replace("_", " ")
+    else:
+        main_title = extract_domain_name(base_url)
+
+print(f"Main topic: {main_title}")
+
+# 2️⃣ Get related links (crawl a few linked pages from the same domain)
+related_links = get_links_from_page(base_url, limit=5)
+urls = [base_url] + related_links
+
+print(f"Found {len(urls)} URLs to crawl")
 
 # 3️⃣ Load all pages into LangChain Documents
 all_documents = []
@@ -38,11 +94,11 @@ for url in urls:
     try:
         docs = loader.load()
         all_documents.extend(docs)
-        print(f"Loaded {url}")
+        print(f"✓ Loaded {url}")
     except Exception as e:
-        print(f"Failed to load {url}: {e}")
+        print(f"✗ Failed to load {url}: {e}")
 
-print(f"Loaded {len(all_documents)} total documents.")
+print(f"\nLoaded {len(all_documents)} total documents.")
 
 # 4️⃣ Split long text into chunks for embedding
 text_splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
@@ -60,4 +116,21 @@ FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 os.makedirs("faiss_data", exist_ok=True)
 db.save_local(FAISS_INDEX_PATH)
 
-print("Vector store created and saved to faiss_data/faiss_index.")
+# Save metadata about ingested content
+metadata = {
+    "base_url": base_url,
+    "base_topic": main_title,
+    "domain": extract_domain_name(base_url),
+    "all_urls": urls,
+    "total_documents": len(all_documents),
+    "total_chunks": len(texts)
+}
+
+metadata_path = os.path.join("faiss_data", "metadata.json")
+with open(metadata_path, "w") as f:
+    json.dump(metadata, f, indent=2)
+
+print(f"\n✓ Vector store created and saved to {FAISS_INDEX_PATH}")
+print(f"✓ Metadata saved to {metadata_path}")
+print(f"✓ Topic: {metadata['base_topic']}")
+print(f"✓ Domain: {metadata['domain']}")
