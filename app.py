@@ -49,9 +49,9 @@ MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models")
 LLM_LOCAL_DIR = os.path.join(MODELS_DIR, "Qwen2-7B-Instruct")
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 
-# Load tokenizer from pre-downloaded model
+# Load tokenizer from pre-downloaded model with extended context
 tokenizer = AutoTokenizer.from_pretrained(LLM_LOCAL_DIR, trust_remote_code=True)
-MAX_TOKENS = 4096  # Increased for better context handling
+MAX_TOKENS = 20000  # Set to 20k tokens for extended context handling
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 
 class TruncatingHuggingFacePipeline(HuggingFacePipeline):
@@ -108,18 +108,19 @@ def initialize_chain():
         # Initialize Hugging Face LLM pipeline with GPU optimization
         print("Initializing Hugging Face LLM pipeline...")
         
-        # Load model with optimizations from local path
-        print(f"Loading model from {LLM_LOCAL_DIR} on {device}...")
+        # Load model with optimizations and extended context support
+        print(f"Loading model from {LLM_LOCAL_DIR} with 20k context support...")
         model = AutoModelForCausalLM.from_pretrained(
             LLM_LOCAL_DIR,
             trust_remote_code=True,
-            dtype=torch.float16 if device.startswith("cuda") else torch.float32,
-            device_map=device if device.startswith("cuda") else None,
-            low_cpu_mem_usage=True
+            torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
+            device_map="auto",  # Let accelerate handle device placement
+            low_cpu_mem_usage=True,
+            # Qwen2 supports long context out of the box, no rope_scaling needed for 20k
+            # as it's trained for up to 131k tokens
         )
 
-        # Create pipeline with GPU settings
-        # Note: When using device_map, don't specify device in pipeline
+        # Create pipeline - don't specify device when using device_map="auto"
         generator = pipeline(
             "text-generation",
             model=model,
@@ -136,7 +137,8 @@ def initialize_chain():
         print("Chatbot chain initialized successfully.")
         print("DB initialized:", db)
         print("LLM initialized:", llm)
-        print(f"Model loaded on: {device}")
+        print(f"Model loaded with device_map='auto' for optimal GPU utilization")
+        print(f"Context length configured for: {MAX_TOKENS} tokens (~15k-20k words)")
         if device.startswith("cuda"):
             gpu_id = int(device.split(":")[-1])
             print(f"GPU memory allocated: {torch.cuda.memory_allocated(gpu_id) / 1024**3:.2f} GB")
@@ -165,18 +167,30 @@ def query():
         if not user_query:
             return jsonify({"error": "No query provided"}), 400
 
-        retrieved_docs = db.similarity_search(user_query, k=3)  # Limit to top 3 for better focus
+        # Retrieve more documents for richer context (up to 10 for 20k context)
+        retrieved_docs = db.similarity_search(user_query, k=10)
         for doc in retrieved_docs:
-            print(doc.page_content)
+            print(doc.page_content[:100] + "...")  # Print first 100 chars
 
         # Build prompt with retrieved context
-        context = "\n".join([doc.page_content for doc in retrieved_docs])
+        context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+
+        # Check context size and truncate if needed
+        context_tokens = tokenizer.encode(context)
+        if len(context_tokens) > MAX_TOKENS - 1000:  # Reserve 1000 tokens for question and answer
+            print(f"Context too long ({len(context_tokens)} tokens), truncating...")
+            context_tokens = context_tokens[:MAX_TOKENS - 1000]
+            context = tokenizer.decode(context_tokens)
 
         # Improved prompt template for instruction-following models
-        template = """You are a helpful AI assistant. Use the following context to answer the question accurately and concisely.
+        template = """You are a helpful AI assistant. Use the following context to answer the question accurately and concisely. 
+        If there is nothing in your context that is relevant to the question, say "I don't know".
 
 Context:
 {context}
+
+Use the context above to answer the question accurately and concisely. 
+If there is nothing in your context that is relevant to the question, say "I don't know"
 
 Question: {user_query}
 
@@ -185,7 +199,7 @@ Answer:"""
         prompt = PromptTemplate.from_template(template)
 
         chain = LLMChain(llm=llm, prompt=prompt)
-        print("Prompt input:", {"context": context[:200], "user_query": user_query})  # Truncate for logging
+        print(f"Prompt input: context length = {len(context)} chars, query = {user_query[:50]}...")
         answer = chain.run({"context": context, "user_query": user_query})
         print("Generated answer:", answer)
         if not answer:
