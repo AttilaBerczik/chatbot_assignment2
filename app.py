@@ -3,7 +3,6 @@ import os
 # Disable progress bars for cleaner output
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["HF_HUB_TIMEOUT"] = "300"  # 5 minute timeout
-os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://uit.no)"
 
 import torch
 from flask import Flask, render_template, request, jsonify
@@ -113,7 +112,7 @@ def initialize_chain():
         model = AutoModelForCausalLM.from_pretrained(
             LLM_LOCAL_DIR,
             trust_remote_code=True,
-            torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
+            dtype=torch.float16 if device.startswith("cuda") else torch.float32,
             device_map="auto",  # Let accelerate handle device placement
             low_cpu_mem_usage=True,
             # Qwen2 supports long context out of the box, no rope_scaling needed for 20k
@@ -190,7 +189,9 @@ Context:
 {context}
 
 Use the context above to answer the question accurately and concisely. 
-If there is nothing in your context that is relevant to the question, say "I don't know"
+If there is nothing in your context that is relevant to the question, say "I don't know".
+Only provide the answer, do not reference the context in your answer, or say "based on the context".
+Provide the a short and concise answer.
 
 Question: {user_query}
 

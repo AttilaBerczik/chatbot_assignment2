@@ -6,9 +6,6 @@ from langchain_text_splitters import SentenceTransformersTokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# Set a polite User-Agent so Wikipedia doesn’t block our requests
-os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
-
 # Model paths (same as in app.py - use pre-downloaded models)
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
