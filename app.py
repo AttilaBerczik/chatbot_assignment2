@@ -14,6 +14,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+from typing import Optional
 
 app = Flask(__name__)
 qa_chain = None
@@ -64,31 +65,12 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
         self._tokenizer = tokenizer
         self._max_tokens = max_tokens
 
-    def __call__(self, prompt, stop=None):
-        # Handle batch, dict, or string
-        if isinstance(prompt, list):
-            truncated_list = []
-            for item in prompt:
-                if isinstance(item, dict):
-                    prompt_text = item.get("text") or item.get("inputs") or item.get("prompt") or ""
-                else:
-                    prompt_text = item
-                input_ids = self._tokenizer.encode(prompt_text, truncation=True, max_length=self._max_tokens)
-                truncated_prompt = self._tokenizer.decode(input_ids)
-                truncated_list.append(truncated_prompt)
-            return super().__call__(truncated_list, stop=stop)
-        elif isinstance(prompt, dict):
-            prompt_text = prompt.get("text") or prompt.get("inputs") or prompt.get("prompt") or ""
-            input_ids = self._tokenizer.encode(prompt_text, truncation=True, max_length=self._max_tokens)
-            truncated_prompt = self._tokenizer.decode(input_ids)
-            return super().__call__(truncated_prompt, stop=stop)
-        else:
-            input_ids = self._tokenizer.encode(prompt, truncation=True, max_length=self._max_tokens)
-            truncated_prompt = self._tokenizer.decode(input_ids)
-            return super().__call__(truncated_prompt, stop=stop)
-
-    def _call(self, prompt, stop=None):
-        return self.__call__(prompt, stop=stop)
+    def _call(self, prompt: str, stop: Optional[list] = None) -> str:
+        # Truncate prompt to max_tokens
+        input_ids = self._tokenizer.encode(prompt, truncation=True, max_length=self._max_tokens)
+        truncated_prompt = self._tokenizer.decode(input_ids)
+        # Delegate to base LLM _call method
+        return super()._call(truncated_prompt, stop=stop)
 
 def initialize_chain():
     """Initializes the conversational retrieval chain."""
@@ -147,6 +129,21 @@ def initialize_chain():
             gpu_id = int(device.split(":")[-1])
             print(f"GPU memory allocated: {torch.cuda.memory_allocated(gpu_id) / 1024**3:.2f} GB")
             print(f"GPU memory reserved: {torch.cuda.memory_reserved(gpu_id) / 1024**3:.2f} GB")
+        # Initialize conversation history with dynamic welcome prompt
+        try:
+            metadata_path = os.path.join("faiss_data", "metadata.json")
+            if os.path.exists(metadata_path):
+                with open(metadata_path, "r") as f:
+                    m = json.load(f)
+                topic = m.get("base_topic", "the ingested content")
+            else:
+                topic = "the ingested content"
+            greeting = f"Hello! I'm your Docker RAG chatbot. Ask me anything about {topic}."
+            conversation_history.clear()
+            conversation_history.append({"role": "assistant", "content": greeting})
+        except Exception as e:
+            print(f"Failed to initialize conversation history greeting: {e}")
+
         return None  # No error
     except Exception as e:
         import traceback
