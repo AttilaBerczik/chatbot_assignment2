@@ -95,23 +95,21 @@ if __name__ == "__main__":
 
     all_documents = [Document(page_content=html, metadata={"source": url}) for url, html in pages]
 
-    # ---------------- SPLITTING ----------------
     print("Splitting text into chunks...")
     splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
+    texts = splitter.split_documents(all_documents)
 
+    #def split_one(doc):
+    #   return splitter.split_documents([doc])
+    #
+    #with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    #    parts = list(executor.map(split_one, all_documents))
 
-    def split_one(doc):
-        return splitter.split_documents([doc])
-
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        parts = list(executor.map(split_one, all_documents))
-
-    # Flatten the list of lists of Document chunks
-    docs = [chunk for sublist in parts for chunk in sublist]
+    #texts = [chunk for sublist in parts for chunk in sublist]
 
     # ---------------- GPU-BASED EMBEDDINGS ----------------
     print("Creating embeddings (GPU-accelerated if available)...")
+
     embeddings = HuggingFaceEmbeddings(
         model_name="BAAI/bge-large-en-v1.5",
         model_kwargs={"device": device}
@@ -119,7 +117,7 @@ if __name__ == "__main__":
 
     # ---------------- BUILD FAISS INDEX ----------------
     print("Building FAISS vector store...")
-    db = FAISS.from_documents(docs, embeddings)
+    db = FAISS.from_documents(texts, embeddings)
 
     FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
     os.makedirs("faiss_data", exist_ok=True)
