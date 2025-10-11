@@ -1,4 +1,6 @@
 import os
+
+import embeddings
 import requests
 import concurrent.futures
 from bs4 import BeautifulSoup
@@ -8,9 +10,13 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from urllib.parse import urljoin, urlparse
 
+# Model paths (same as in app.py - use pre-downloaded models)
+MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
+EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+
 # ---------------- SETTINGS ----------------
 START_URL = "https://en.wikipedia.org/wiki/Norway"  # Change this for any site
-MAX_LINKS = 20       # Total pages to crawl
+MAX_LINKS = 10       # Total pages to crawl
 MAX_WORKERS = 20       # How many threads to use
 os.environ["USER_AGENT"] = "FastCrawlerBot/1.0 (+https://example.com)"
 
@@ -73,7 +79,7 @@ if __name__ == "__main__":
     all_documents = [Document(page_content=html, metadata={"source": url}) for url, html in pages]
 
     # 5️⃣ Split into chunks for embedding
-    print("Splitting text into chunks. ..")
+    print("Splitting text into chunks...")
     splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
 
 
@@ -86,27 +92,24 @@ if __name__ == "__main__":
 
     texts = [chunk for sublist in parts for chunk in sublist]
 
-    from sentence_transformers import SentenceTransformer
-    from langchain_community.vectorstores import FAISS
-    from langchain_core.documents import Document
-    from tqdm import tqdm
 
-    # 6️⃣ Create embeddings and FAISS vector store
-    print("Creating embeddings...")
-    model = SentenceTransformer("thenlper/gte-base", device="cuda")
+    print("Convert text into embeddings...")
+    # 5️⃣ Convert text into embeddings
+    from langchain_huggingface import HuggingFaceEmbeddings
 
-    texts_content = [t.page_content for t in texts]
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cuda"}
+    )
 
-    # Compute embeddings on GPU
-    embeddings = []
-    batch_size = 64
-    for i in tqdm(range(0, len(texts_content), batch_size), desc="Embedding on GPU"):
-        batch = texts_content[i:i + batch_size]
-        emb = model.encode(batch, show_progress_bar=False, convert_to_numpy=True)
-        embeddings.extend(emb)
-
-
+    print("Build and save FAISS index...")
+    # 6️⃣ Build and save FAISS index
     db = FAISS.from_documents(texts, embeddings)
-    db.save_local("faiss_index")
+
+    # Save the vector store to a local file
+    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+    os.makedirs("faiss_data", exist_ok=True)
+    db.save_local(FAISS_INDEX_PATH)
+
 
     print("Ingestion complete. Vector store saved to ./faiss_index/")
