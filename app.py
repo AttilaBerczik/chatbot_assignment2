@@ -6,6 +6,7 @@ os.environ["HF_HUB_TIMEOUT"] = "300"  # 5 minute timeout
 
 import torch
 import json
+import time  # Add missing import
 from flask import Flask, render_template, request, jsonify
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chains import LLMChain
@@ -221,6 +222,9 @@ def get_topic():
 def query():
     try:
         global db, llm, conversation_history
+
+        start_time = time.time()  # Fix: Define start_time at the beginning
+        print("\n" + "="*80)
         print("Entered /query endpoint")
         user_query = request.json.get("query")
         if not user_query:
@@ -288,7 +292,9 @@ Answer:"""
         # append assistant response to history
         conversation_history.append({"role": "assistant", "content": answer})
 
-        return jsonify({"answer": answer)
+        return jsonify({
+            "answer": answer
+        })
     except Exception as e:
         import traceback
         traceback.print_exc()
