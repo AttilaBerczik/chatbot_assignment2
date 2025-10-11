@@ -52,7 +52,11 @@ EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 # Load tokenizer from pre-downloaded model with extended context
 tokenizer = AutoTokenizer.from_pretrained(LLM_LOCAL_DIR, trust_remote_code=True)
 MAX_TOKENS = 20000  # Set to 20k tokens for extended context handling
+HISTORY_MAX_TOKENS = 2000  # Reserve tokens for past conversation
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+
+# store conversation history in memory
+conversation_history = []
 
 class TruncatingHuggingFacePipeline(HuggingFacePipeline):
     def __init__(self, pipeline, tokenizer, max_tokens):
@@ -185,38 +189,43 @@ def get_topic():
 @app.route("/query", methods=["POST"])
 def query():
     try:
+        global db, llm, conversation_history
         print("Entered /query endpoint")
-        global db, llm
-
-        print("Request JSON:", request.json)
         user_query = request.json.get("query")
-        print("User query:", user_query)
         if not user_query:
             return jsonify({"error": "No query provided"}), 400
 
-        # Retrieve more documents for richer context (up to 10 for 20k context)
-        retrieved_docs = db.similarity_search(user_query, k=10)
-        for doc in retrieved_docs:
-            print(doc.page_content[:100] + "...")  # Print first 100 chars
+        # append user message to history
+        conversation_history.append({"role": "user", "content": user_query})
 
-        # Build prompt with retrieved context
+        # build history string and truncate to last HISTORY_MAX_TOKENS tokens
+        history_text = "\n".join([f"User: {msg['content']}" if msg['role']=="user" else f"Assistant: {msg['content']}" for msg in conversation_history])
+        history_tokens = tokenizer.encode(history_text)
+        if len(history_tokens) > HISTORY_MAX_TOKENS:
+            history_tokens = history_tokens[-HISTORY_MAX_TOKENS:]
+            history_text = tokenizer.decode(history_tokens)
+
+        # Retrieve context documents
+        retrieved_docs = db.similarity_search(user_query, k=10)
         context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
-        # Check context size and truncate if needed
+        # truncate context if needed
         context_tokens = tokenizer.encode(context)
-        if len(context_tokens) > MAX_TOKENS - 1000:  # Reserve 1000 tokens for question and answer
-            print(f"Context too long ({len(context_tokens)} tokens), truncating...")
-            context_tokens = context_tokens[:MAX_TOKENS - 1000]
+        if len(context_tokens) > MAX_TOKENS - HISTORY_MAX_TOKENS - 1000:
+            context_tokens = context_tokens[:MAX_TOKENS - HISTORY_MAX_TOKENS - 1000]
             context = tokenizer.decode(context_tokens)
 
-        # Improved prompt template for instruction-following models
-        template = """You are a helpful AI assistant. Use the following context to answer the question accurately and concisely.
+        # Prompt with history and context
+        template = """You are a helpful AI assistant. Use the conversation history and the following context to answer the question concisely.
+
+Conversation history:
+{history}
 
 Context:
 {context}
 
 Instructions:
-- Answer the question using only the information from the context.
+- Answer using only the context and history.
 - Do not mention, reference, or describe the context itself.
 - Do not explain how the answer was created.
 - Do not include notes, disclaimers, or meta-commentary of any kind.
@@ -225,19 +234,17 @@ Instructions:
 Question: {user_query}
 
 Answer:"""
-
         prompt = PromptTemplate.from_template(template)
 
         chain = LLMChain(llm=llm, prompt=prompt)
-        print(f"Prompt input: context length = {len(context)} chars, query = {user_query[:50]}...")
-        answer = chain.run({"context": context, "user_query": user_query})
-        print("Generated answer:", answer)
-        if not answer:
-            return jsonify({"error": "No answer could be generated."}), 500
+        answer = chain.run({"history": history_text, "context": context, "user_query": user_query})
+
+        # append assistant response to history
+        conversation_history.append({"role": "assistant", "content": answer})
+
         return jsonify({"answer": answer})
     except Exception as e:
         import traceback
-        print("Error processing query (outer):")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
