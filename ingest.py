@@ -110,10 +110,11 @@ if __name__ == "__main__":
     # ---------------- GPU-BASED EMBEDDINGS ----------------
     print("Creating embeddings (GPU-accelerated if available)...")
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="BAAI/bge-large-en-v1.5",
-        model_kwargs={"device": device}
-    )
+    #embeddings = HuggingFaceEmbeddings(
+    #    model_name="BAAI/bge-large-en-v1.5",
+    #    model_kwargs={"device": device}
+    #)
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     # ---------------- BUILD FAISS INDEX ----------------
     print("Building FAISS vector store...")
