@@ -37,7 +37,7 @@ device = get_device()
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 START_URL = "https://en.wikipedia.org/wiki/Norway"  # Change this for any site
-MAX_LINKS = 10
+MAX_LINKS = 1
 MAX_WORKERS = 20
 os.environ["USER_AGENT"] = "FastCrawlerBot/1.0 (+https://example.com)"
 
@@ -95,9 +95,18 @@ if __name__ == "__main__":
 
     all_documents = [Document(page_content=html, metadata={"source": url}) for url, html in pages]
 
-    print("Splitting text into chunks...")
+    print("Splitting text into chunks. ..")
     splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
-    texts = splitter.split_documents(all_documents)
+
+
+    def split_one(doc):
+        return splitter.split_documents([doc])
+
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        parts = list(executor.map(split_one, all_documents))
+
+    texts = [chunk for sublist in parts for chunk in sublist]
 
     #def split_one(doc):
     #   return splitter.split_documents([doc])
