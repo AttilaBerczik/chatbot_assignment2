@@ -91,6 +91,16 @@ def initialize_chain():
         print("Loading vector store from disk...")
         db = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
+        # Display index information
+        print(f"✓ Loaded FAISS index: {db.index.ntotal} vectors, dimension {db.index.d}")
+        index_type = type(db.index).__name__
+        print(f"✓ Index type: {index_type}")
+
+        # If it's an IVF index, show search parameters
+        if hasattr(db.index, 'nprobe'):
+            print(f"✓ IVF search parameters: nprobe={db.index.nprobe}, nlist={db.index.nlist}")
+            print(f"✓ Search efficiency: ~{100 * db.index.nprobe / db.index.nlist:.1f}% of index searched per query")
+
         # Initialize Hugging Face LLM pipeline with GPU optimization
         print("Initializing Hugging Face LLM pipeline...")
         
@@ -196,6 +206,7 @@ def query():
         conversation_history.append({"role": "user", "content": user_query})
 
         # build history string and truncate to last HISTORY_MAX_TOKENS tokens
+        retrieval_start = time.time()
         history_text = "\n".join([f"User: {msg['content']}" if msg['role']=="user" else f"Assistant: {msg['content']}" for msg in conversation_history])
         history_tokens = tokenizer.encode(history_text)
         if len(history_tokens) > HISTORY_MAX_TOKENS:
@@ -211,6 +222,9 @@ def query():
         if len(context_tokens) > MAX_TOKENS - HISTORY_MAX_TOKENS - 1000:
             context_tokens = context_tokens[:MAX_TOKENS - HISTORY_MAX_TOKENS - 1000]
             context = tokenizer.decode(context_tokens)
+
+        retrieval_time = time.time() - retrieval_start
+        print(f"⏱️  Retrieval time: {retrieval_time:.2f}s")
 
         # Prompt with history and context
         template = """You are a helpful AI assistant. Use the conversation history and the following context to answer the question concisely.
@@ -234,12 +248,23 @@ Answer:"""
         prompt = PromptTemplate.from_template(template)
 
         chain = LLMChain(llm=llm, prompt=prompt)
+
+        generation_start = time.time()
+        print(f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
         answer = chain.run({"history": history_text, "context": context, "user_query": user_query})
+        generation_time = time.time() - generation_start
+
+        total_time = time.time() - start_time
+
+        print(f"⏱️  Generation time: {generation_time:.2f}s")
+        print(f"⏱️  Total time: {total_time:.2f}s")
+        print(f"📝 Response length: {len(answer)} chars")
+        print("="*80 + "\n")
 
         # append assistant response to history
         conversation_history.append({"role": "assistant", "content": answer})
 
-        return jsonify({"answer": answer})
+        return jsonify({"answer": answer)
     except Exception as e:
         import traceback
         traceback.print_exc()

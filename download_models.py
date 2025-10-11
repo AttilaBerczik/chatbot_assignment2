@@ -4,8 +4,8 @@ from huggingface_hub import snapshot_download
 
 # Config via environment variables with defaults
 HF_MODELS_DIR = os.environ.get("HF_MODELS_DIR", "/opt/models")
-LLM_REPO = os.environ.get("LLM_REPO", "Qwen/Qwen2-7B-Instruct")
-LLM_LOCAL_DIR = os.environ.get("LLM_LOCAL_DIR", os.path.join(HF_MODELS_DIR, "Qwen2-7B-Instruct"))
+LLM_REPO = os.environ.get("LLM_REPO", "Qwen/Qwen2.5-7B-Instruct")
+LLM_LOCAL_DIR = os.environ.get("LLM_LOCAL_DIR", os.path.join(HF_MODELS_DIR, "Qwen/Qwen2.5-7B-Instruct"))
 EMB_REPO = os.environ.get("EMB_REPO", "BAAI/bge-large-en-v1.5")
 EMB_LOCAL_DIR = os.environ.get("EMB_LOCAL_DIR", os.path.join(HF_MODELS_DIR, "bge-large-en-v1.5"))
 

@@ -12,3 +12,7 @@ torch
 transformers
 accelerate
 huggingface_hub
+# Speed optimization libraries
+optimum>=1.16.0
+flash-attn>=2.5.0
+ninja  # Required for flash-attn compilation
