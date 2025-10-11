@@ -14,5 +14,7 @@ accelerate
 huggingface_hub
 # Speed optimization libraries
 optimum>=1.16.0
-flash-attn>=2.5.0
-ninja  # Required for flash-attn compilation
+# Flash attention requires compilation - install separately if needed
+# flash-attn is optional but provides 3-4x speedup if compiled successfully
+packaging  # Required by flash-attn and other packages
+ninja  # Build tool for flash-attn compilation
