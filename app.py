@@ -48,7 +48,7 @@ device = get_device()
 
 # Model paths (downloaded during Docker build)
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
-LLM_LOCAL_DIR = os.path.join(MODELS_DIR, "Qwen2-7B-Instruct")
+LLM_LOCAL_DIR = os.path.join(MODELS_DIR, "Qwen/Qwen2.5-7B-Instruct")
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 
 # Load tokenizer from pre-downloaded model with extended context
