@@ -187,7 +187,6 @@ if __name__ == "__main__":
 
     # ---------------- BUILD FAISS INDEX ----------------
     print("Building FAISS vector store...")
-    print(f"Embeddings type: {type(embeddings)}")
 
     db = FAISS.from_embeddings(embeddings_vectors, texts)
     FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
