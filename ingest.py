@@ -2,6 +2,7 @@ import os
 from huggingface_hub import snapshot_download
 
 # ------------------ CACHE SETUP ------------------
+
 CACHE_DIR = os.path.join(os.getcwd(), "models_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -11,6 +12,10 @@ os.environ["TRANSFORMERS_CACHE"] = CACHE_DIR
 os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
 
 MODEL_NAME = "BAAI/bge-large-en-v1.5"
+
+os.environ["HF_HOME"] = "/root/.cache/huggingface"
+os.environ["HF_HUB_CACHE"] = "/root/.cache/huggingface"
+print(f"Hugging Face cache dir: {os.environ['HF_HOME']}")
 
 # ------------------ DOWNLOAD IF NEEDED ------------------
 local_model_path = os.path.join(CACHE_DIR, MODEL_NAME.replace("/", "__"))
@@ -142,21 +147,51 @@ if __name__ == "__main__":
 
     #texts = [chunk for sublist in parts for chunk in sublist]
 
-    # ---------------- GPU-BASED EMBEDDINGS ----------------
-    print("Creating embeddings (GPU-accelerated if available)...")
+    # ---------------- MULTI-GPU EMBEDDING ----------------
+    import torch
+    import concurrent.futures
+    from langchain_huggingface import HuggingFaceEmbeddings
+
+    print("Creating embeddings across multiple GPUs...")
+
+    num_gpus = torch.cuda.device_count()
+    print(f"Detected {num_gpus} GPU(s).")
 
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name=local_model_path,
-        model_kwargs={"device": device}
-    )
-    #embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    def embed_on_gpu(gpu_id, docs_chunk):
+        print(f"[GPU {gpu_id}] Starting embedding of {len(docs_chunk)} chunks...")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-large-en-v1.5",
+            model_kwargs={"device": f"cuda:{gpu_id}"}
+        )
+        return embeddings.embed_documents([d.page_content for d in docs_chunk])
+
+
+    # Split work roughly evenly among GPUs
+    if num_gpus > 1:
+        chunks = [texts[i::num_gpus] for i in range(num_gpus)]
+
+        all_embeddings = []
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_gpus) as executor:
+            futures = [executor.submit(embed_on_gpu, i, chunks[i]) for i in range(num_gpus)]
+            for f in concurrent.futures.as_completed(futures):
+                all_embeddings.extend(f.result())
+
+        # Merge results (you’ll store them next in FAISS)
+        embeddings_vectors = all_embeddings
+    else:
+        print("Only one GPU detected — using cuda:0")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-large-en-v1.5",
+            model_kwargs={"device": "cuda:0"}
+        )
+        embeddings_vectors = embeddings.embed_documents([d.page_content for d in texts])
 
     # ---------------- BUILD FAISS INDEX ----------------
     print("Building FAISS vector store...")
     print(f"Embeddings type: {type(embeddings)}")
-    db = FAISS.from_documents(texts, embedding=embeddings)
 
+    db = FAISS.from_embeddings(embeddings_vectors, texts)
     FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local(FAISS_INDEX_PATH)
