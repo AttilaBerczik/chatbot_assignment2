@@ -1,4 +1,30 @@
 import os
+from huggingface_hub import snapshot_download
+
+# ------------------ CACHE SETUP ------------------
+CACHE_DIR = os.path.join(os.getcwd(), "models_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Make Hugging Face + Transformers + SentenceTransformers use it
+os.environ["HF_HOME"] = CACHE_DIR
+os.environ["TRANSFORMERS_CACHE"] = CACHE_DIR
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
+
+MODEL_NAME = "BAAI/bge-large-en-v1.5"
+
+# ------------------ DOWNLOAD IF NEEDED ------------------
+local_model_path = os.path.join(CACHE_DIR, MODEL_NAME.replace("/", "__"))
+
+if not os.path.exists(local_model_path):
+    print(f"Downloading model {MODEL_NAME} to local cache...")
+    snapshot_download(
+        repo_id=MODEL_NAME,
+        local_dir=local_model_path,
+        local_dir_use_symlinks=False
+    )
+else:
+    print(f"Using cached model from {local_model_path}")
+
 import requests
 import concurrent.futures
 from bs4 import BeautifulSoup
@@ -119,8 +145,9 @@ if __name__ == "__main__":
     # ---------------- GPU-BASED EMBEDDINGS ----------------
     print("Creating embeddings (GPU-accelerated if available)...")
 
+
     embeddings = HuggingFaceEmbeddings(
-        model_name="BAAI/bge-large-en-v1.5",
+        model_name=local_model_path,
         model_kwargs={"device": device}
     )
     #embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
