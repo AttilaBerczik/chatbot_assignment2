@@ -37,8 +37,27 @@ from langchain_text_splitters import SentenceTransformersTokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 import torch
+import subprocess
+import re
 
 # ---------------- GPU DETECTION ----------------
+def get_free_gpus(min_free_mem_gb=35.0):
+    """
+    Returns a list of GPU IDs that have more than `min_free_mem_gb` GB free memory.
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True
+        )
+        free_memories = [int(x) for x in result.stdout.strip().split("\n")]
+        free_gpus = [i for i, mem in enumerate(free_memories) if mem > min_free_mem_gb * 1024]
+        return free_gpus
+    except Exception as e:
+        print("Could not check GPU memory:", e)
+        return list(range(torch.cuda.device_count()))  # fallback: use all GPUs
+
+
 def get_device():
     """Detect and configure the best available device (GPU if possible)."""
     if torch.cuda.is_available():
@@ -160,8 +179,13 @@ if __name__ == "__main__":
 
     print("Creating embeddings across multiple GPUs...")
 
-    num_gpus = torch.cuda.device_count()
-    print(f"Detected {num_gpus} GPU(s).")
+    free_gpus = get_free_gpus(min_free_mem_gb=2.0)
+    num_gpus = len(free_gpus)
+
+    if num_gpus == 0:
+        print("No sufficiently free GPUs found — falling back to CPU.")
+    else:
+        print(f"Detected {torch.cuda.device_count()} total GPUs, using {num_gpus} free GPUs: {free_gpus}")
 
 
 
@@ -171,7 +195,7 @@ if __name__ == "__main__":
 
         all_embeddings = []
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_gpus) as executor:
-            futures = [executor.submit(embed_on_gpu, i, chunks[i]) for i in range(num_gpus)]
+            futures = [executor.submit(embed_on_gpu, gpu_id, chunks[i]) for i, gpu_id in enumerate(free_gpus)]
             for f in concurrent.futures.as_completed(futures):
                 all_embeddings.extend(f.result())
 
