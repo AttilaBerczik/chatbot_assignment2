@@ -1,4 +1,6 @@
 import os
+import multiprocessing
+multiprocessing.set_start_method("spawn", force=True)
 from huggingface_hub import snapshot_download
 
 # ------------------ CACHE SETUP ------------------
