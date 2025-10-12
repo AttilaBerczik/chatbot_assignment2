@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     print("Creating embeddings across multiple GPUs...")
 
-    free_gpus = get_free_gpus(min_free_mem_gb=2.0)
+    free_gpus = get_free_gpus(min_free_mem_gb=35.0)
     num_gpus = len(free_gpus)
 
     if num_gpus == 0:
