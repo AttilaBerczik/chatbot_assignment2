@@ -108,6 +108,14 @@ def parallel_fetch(urls, headers, max_workers=10):
                 pages.append((url, content))
     return pages
 
+def embed_on_gpu(gpu_id, docs_chunk):
+    print(f"[GPU {gpu_id}] Starting embedding of {len(docs_chunk)} chunks...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="BAAI/bge-large-en-v1.5",
+        model_kwargs={"device": f"cuda:{gpu_id}"}
+    )
+    return embeddings.embed_documents([d.page_content for d in docs_chunk])
+
 # ---------------- MAIN INGESTION ----------------
 if __name__ == "__main__":
     print(f"Starting crawl from {START_URL}")
@@ -155,14 +163,6 @@ if __name__ == "__main__":
     num_gpus = torch.cuda.device_count()
     print(f"Detected {num_gpus} GPU(s).")
 
-
-    def embed_on_gpu(gpu_id, docs_chunk):
-        print(f"[GPU {gpu_id}] Starting embedding of {len(docs_chunk)} chunks...")
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-large-en-v1.5",
-            model_kwargs={"device": f"cuda:{gpu_id}"}
-        )
-        return embeddings.embed_documents([d.page_content for d in docs_chunk])
 
 
     # Split work roughly evenly among GPUs
