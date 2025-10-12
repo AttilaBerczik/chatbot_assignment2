@@ -43,7 +43,7 @@ def get_device():
     """Detect and configure the best available device (GPU if possible)."""
     if torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
-        print(f"Found {num_gpus} GPU(s)")
+        print(f"Using GPUs: {[torch.cuda.get_device_name(i) for i in range(num_gpus)]}")
         max_free_memory = 0
         best_gpu = 0
         for i in range(num_gpus):
@@ -66,7 +66,7 @@ device = get_device()
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 START_URL = "https://en.wikipedia.org/wiki/Norway"  # Change this for any site
-MAX_LINKS = 1
+MAX_LINKS = 100
 MAX_WORKERS = 20
 os.environ["USER_AGENT"] = "FastCrawlerBot/1.0 (+https://example.com)"
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         return splitter.split_documents([doc])
 
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         parts = list(executor.map(split_one, all_documents))
 
     texts = [chunk for sublist in parts for chunk in sublist]
