@@ -2,7 +2,6 @@ import os
 from huggingface_hub import snapshot_download
 
 # ------------------ CACHE SETUP ------------------
-
 CACHE_DIR = os.path.join(os.getcwd(), "models_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -12,9 +11,6 @@ os.environ["TRANSFORMERS_CACHE"] = CACHE_DIR
 os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
 
 MODEL_NAME = "BAAI/bge-large-en-v1.5"
-
-os.environ["HF_HOME"] = "/root/.cache/huggingface"
-os.environ["HF_HUB_CACHE"] = "/root/.cache/huggingface"
 print(f"Hugging Face cache dir: {os.environ['HF_HOME']}")
 
 # ------------------ DOWNLOAD IF NEEDED ------------------
