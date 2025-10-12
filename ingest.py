@@ -188,9 +188,16 @@ if __name__ == "__main__":
     # ---------------- BUILD FAISS INDEX ----------------
     print("Building FAISS vector store...")
 
-    db = FAISS.from_embeddings(embeddings_vectors, texts)
-    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
-    os.makedirs("faiss_data", exist_ok=True)
-    db.save_local(FAISS_INDEX_PATH)
+    # Convert Document objects to plain strings for FAISS
+    text_contents = [d.page_content for d in texts]
 
-    print(f"Ingestion complete. Vector store saved to: {FAISS_INDEX_PATH}")
+    # Sanity check
+    assert len(text_contents) == len(embeddings_vectors), \
+        f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
+
+    db = FAISS.from_texts(text_contents, HuggingFaceEmbeddings(
+        model_name="BAAI/bge-large-en-v1.5"
+    ))
+    db.save_local(os.path.join("faiss_data", "faiss_index"))
+
+    print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
