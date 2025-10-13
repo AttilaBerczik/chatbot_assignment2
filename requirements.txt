@@ -2,7 +2,7 @@ langchain
 langchain-community
 langchain-core
 langchain-text-splitters
-faiss-cpu
+faiss-gpu
 sentence-transformers
 flask
 langchain-huggingface
