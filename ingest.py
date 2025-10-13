@@ -229,11 +229,12 @@ if __name__ == "__main__":
         )
         embeddings_vectors = embeddings.embed_documents([d.page_content for d in texts])
 
-    # ---------------- BUILD FAISS INDEX ----------------
+    # ---------------- BUILD FAISS INDEX (using precomputed embeddings) ----------------
     import faiss
     import os
     import numpy as np
     from langchain_community.vectorstores import FAISS
+    from langchain_huggingface import HuggingFaceEmbeddings
 
     print("Building FAISS vector store from precomputed embeddings...")
 
@@ -251,18 +252,22 @@ if __name__ == "__main__":
     embedding_dim = len(embeddings_vectors[0])
     embedding_matrix = np.array(embeddings_vectors, dtype="float32")
 
-    # Create a flat L2 FAISS index
-    index = faiss.IndexFlatL2(embedding_dim)
+    # Create the same embedding object (for metadata + query encoding later)
+    embedding_model = HuggingFaceEmbeddings(
+        model_name="BAAI/bge-large-en-v1.5",
+        model_kwargs={"device": "cpu"}
+    )
 
-    # Add all embeddings to the index
+    # Create FAISS index manually
     print(f"Adding {len(embedding_matrix)} embeddings to FAISS index...")
-    index.add(embedding_matrix)
-
-    # Wrap FAISS index in LangChain's FAISS VectorStore
-    db = FAISS.from_embeddings(list(zip(text_contents, embeddings_vectors)))
+    db = FAISS.from_embeddings(
+        text_embeddings=list(zip(text_contents, embeddings_vectors)),
+        embedding=embedding_model
+    )
 
     # Save FAISS index locally
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local("faiss_data/faiss_index")
 
     print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
+
