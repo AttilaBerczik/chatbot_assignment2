@@ -229,24 +229,24 @@ if __name__ == "__main__":
         )
         embeddings_vectors = embeddings.embed_documents([d.page_content for d in texts])
 
-        # ---------------- BUILD FAISS INDEX ----------------
-        print("Building FAISS vector store...")
+    # ---------------- BUILD FAISS INDEX ----------------
+    print("Building FAISS vector store...")
 
-        # Convert Document objects to plain strings for FAISS
-        text_contents = [d.page_content for d in texts]
+    # Convert Document objects to plain strings for FAISS
+    text_contents = [d.page_content for d in texts]
 
-        # Sanity check
-        assert len(text_contents) == len(embeddings_vectors), \
-            f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
+    # Sanity check
+    assert len(text_contents) == len(embeddings_vectors), \
+        f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
 
-        # Reuse same model and ensure GPU
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-large-en-v1.5",
-            model_kwargs={"device": "cuda"}
-        )
+    # Reuse same model and ensure GPU
+    embeddings = HuggingFaceEmbeddings(
+        model_name="BAAI/bge-large-en-v1.5",
+        model_kwargs={"device": "cuda"}
+    )
 
-        os.makedirs("faiss_data", exist_ok=True)
-        db = FAISS.from_texts(text_contents, embeddings)
-        db.save_local("faiss_data/faiss_index")
+    os.makedirs("faiss_data", exist_ok=True)
+    db = FAISS.from_texts(text_contents, embeddings)
+    db.save_local("faiss_data/faiss_index")
 
-        print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
+    print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
