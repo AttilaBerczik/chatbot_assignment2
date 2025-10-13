@@ -13,7 +13,7 @@ os.environ["TRANSFORMERS_CACHE"] = CACHE_DIR
 os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
 
 MODEL_NAME = "BAAI/bge-large-en-v1.5"
-print(f"Hugging Face cache dir: {os.environ['HF_HOME']}")
+#print(f"Hugging Face cache dir: {os.environ['HF_HOME']}")
 
 # ------------------ DOWNLOAD IF NEEDED ------------------
 local_model_path = os.path.join(CACHE_DIR, MODEL_NAME.replace("/", "__"))
@@ -62,18 +62,18 @@ def get_device():
     """Detect and configure the best available device (GPU if possible)."""
     if torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
-        print(f"Using GPUs: {[torch.cuda.get_device_name(i) for i in range(num_gpus)]}")
+        #print(f"Using GPUs: {[torch.cuda.get_device_name(i) for i in range(num_gpus)]}")
         max_free_memory = 0
         best_gpu = 0
         for i in range(num_gpus):
             props = torch.cuda.get_device_properties(i)
             free_memory = props.total_memory - torch.cuda.memory_allocated(i)
-            print(f"GPU {i}: {props.name} | Free memory: {free_memory / 1024**3:.2f} GB")
+            #print(f"GPU {i}: {props.name} | Free memory: {free_memory / 1024**3:.2f} GB")
             if free_memory > max_free_memory:
                 max_free_memory = free_memory
                 best_gpu = i
         device = f"cuda:{best_gpu}"
-        print(f"Using GPU device: {device}")
+        #print(f"Using GPU device: {device}")
         return device
     else:
         print("No GPU available — using CPU instead.")
