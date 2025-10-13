@@ -155,20 +155,31 @@ if __name__ == "__main__":
 
     print("Splitting text into chunks. ..")
     #splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
+    print("Splitting text into chunks...")
+
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=512,
         chunk_overlap=50,
         separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
     )
 
+
     def split_one(doc):
         return splitter.split_documents([doc])
 
 
+    # Keep everything inside the with-block
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        futures = list(tqdm(executor.map(split_one, all_documents), total=len(all_documents), desc="Splitting docs"))
+        texts = [
+            chunk
+            for doc_chunks in tqdm(
+                executor.map(split_one, all_documents),
+                total=len(all_documents),
+                desc="Splitting docs"
+            )
+            for chunk in doc_chunks
+        ]
 
-    texts = [chunk for doc_chunks in executor.map(split_one, all_documents) for chunk in doc_chunks]
 
     #def split_one(doc):
     #   return splitter.split_documents([doc])
