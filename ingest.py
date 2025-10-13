@@ -229,50 +229,24 @@ if __name__ == "__main__":
         )
         embeddings_vectors = embeddings.embed_documents([d.page_content for d in texts])
 
-    # ---------------- BUILD FAISS INDEX (GPU-ACCELERATED) ----------------
-    import faiss
-    import numpy as np
+        # ---------------- BUILD FAISS INDEX ----------------
+        print("Building FAISS vector store...")
 
-    print("Building FAISS vector store (GPU-accelerated if available)...")
+        # Convert Document objects to plain strings for FAISS
+        text_contents = [d.page_content for d in texts]
 
-    # Convert Document objects to plain text
-    text_contents = [d.page_content for d in texts]
+        # Sanity check
+        assert len(text_contents) == len(embeddings_vectors), \
+            f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
 
-    # Convert embeddings to numpy array
-    embeddings_array = np.array(embeddings_vectors).astype("float32")
+        # Reuse same model and ensure GPU
+        embeddings = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-large-en-v1.5",
+            model_kwargs={"device": "cuda"}
+        )
 
-    # Sanity check
-    assert len(text_contents) == len(embeddings_array), \
-        f"Mismatch: {len(text_contents)} texts vs {len(embeddings_array)} embeddings"
+        os.makedirs("faiss_data", exist_ok=True)
+        db = FAISS.from_texts(text_contents, embeddings)
+        db.save_local("faiss_data/faiss_index")
 
-    embedding_dim = embeddings_array.shape[1]
-
-    # Create a simple L2 index (exact search)
-    cpu_index = faiss.IndexFlatL2(embedding_dim)
-
-    # Move to GPU if available
-    if torch.cuda.is_available():
-        print("⚡ Using FAISS-GPU for index construction...")
-        res = faiss.StandardGpuResources()  # Manages temporary GPU memory
-        gpu_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
-        gpu_index.add(embeddings_array)
-        print(f"✅ Added {gpu_index.ntotal} vectors to GPU index")
-
-        # Move back to CPU index for saving
-        cpu_index = faiss.index_gpu_to_cpu(gpu_index)
-    else:
-        print("🧠 No GPU detected — using CPU FAISS")
-        cpu_index.add(embeddings_array)
-
-    # Save FAISS index + metadata
-    os.makedirs("faiss_data", exist_ok=True)
-    index_path = os.path.join("faiss_data", "faiss_index.faiss")
-    faiss.write_index(cpu_index, index_path)
-
-    # Optionally, save text mapping separately for retrieval
-    import pickle
-
-    with open(os.path.join("faiss_data", "texts.pkl"), "wb") as f:
-        pickle.dump(text_contents, f)
-
-    print(f"✅ Ingestion complete! Vector store saved to {index_path}")
+        print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
