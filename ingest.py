@@ -90,7 +90,7 @@ device = get_device()
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 START_URL = "https://en.wikipedia.org/wiki/Norway"  # Change this for any site
-MAX_LINKS = 100
+MAX_LINKS = 10
 MAX_WORKERS = 20
 os.environ["USER_AGENT"] = "FastCrawlerBot/1.0 (+https://example.com)"
 
@@ -230,23 +230,39 @@ if __name__ == "__main__":
         embeddings_vectors = embeddings.embed_documents([d.page_content for d in texts])
 
     # ---------------- BUILD FAISS INDEX ----------------
-    print("Building FAISS vector store...")
+    import faiss
+    import os
+    import numpy as np
+    from langchain_community.vectorstores import FAISS
 
-    # Convert Document objects to plain strings for FAISS
+    print("Building FAISS vector store from precomputed embeddings...")
+
+    # Use all CPU cores for FAISS operations
+    faiss.omp_set_num_threads(os.cpu_count())
+
+    # Convert Document objects to plain text
     text_contents = [d.page_content for d in texts]
 
-    # Sanity check
+    # Sanity check: make sure embeddings and texts align
     assert len(text_contents) == len(embeddings_vectors), \
         f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
 
-    # Reuse same model and ensure GPU
-    embeddings = HuggingFaceEmbeddings(
-        model_name="BAAI/bge-large-en-v1.5",
-        model_kwargs={"device": "cuda"}
-    )
+    # Convert embeddings to float32 numpy array (required by FAISS)
+    embedding_dim = len(embeddings_vectors[0])
+    embedding_matrix = np.array(embeddings_vectors, dtype="float32")
 
+    # Create a flat L2 FAISS index
+    index = faiss.IndexFlatL2(embedding_dim)
+
+    # Add all embeddings to the index
+    print(f"Adding {len(embedding_matrix)} embeddings to FAISS index...")
+    index.add(embedding_matrix)
+
+    # Wrap FAISS index in LangChain's FAISS VectorStore
+    db = FAISS.from_embeddings(list(zip(text_contents, embeddings_vectors)))
+
+    # Save FAISS index locally
     os.makedirs("faiss_data", exist_ok=True)
-    db = FAISS.from_texts(text_contents, embeddings)
     db.save_local("faiss_data/faiss_index")
 
     print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
