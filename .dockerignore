@@ -1,0 +1,24 @@
+# Don't include downloaded models
+models_cache/
+faiss_data/
+
+# Python build caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Hugging Face, PyTorch, and other large artifacts
+*.pt
+*.bin
+*.safetensors
+*.pkl
+*.zip
+*.tar.gz
+*.h5
+*.npy
+*.npz
+
+# Git + system files
+.git/
+.DS_Store
