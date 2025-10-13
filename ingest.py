@@ -85,7 +85,7 @@ device = get_device()
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 START_URL = "https://en.wikipedia.org/wiki/Norway"  # Change this for any site
-MAX_LINKS = 100
+MAX_LINKS = 5
 MAX_WORKERS = 20
 os.environ["USER_AGENT"] = "FastCrawlerBot/1.0 (+https://example.com)"
 
