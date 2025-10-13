@@ -34,11 +34,13 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from langchain_core.documents import Document
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 import torch
 import subprocess
 import re
+from tqdm import tqdm
 
 # ---------------- GPU DETECTION ----------------
 def get_free_gpus(min_free_mem_gb=35.0):
@@ -152,17 +154,21 @@ if __name__ == "__main__":
     all_documents = [Document(page_content=html, metadata={"source": url}) for url, html in pages]
 
     print("Splitting text into chunks. ..")
-    splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
-
+    #splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=512,
+        chunk_overlap=50,
+        separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+    )
 
     def split_one(doc):
         return splitter.split_documents([doc])
 
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        parts = list(executor.map(split_one, all_documents))
+        futures = list(tqdm(executor.map(split_one, all_documents), total=len(all_documents), desc="Splitting docs"))
 
-    texts = [chunk for sublist in parts for chunk in sublist]
+    texts = [chunk for doc_chunks in executor.map(split_one, all_documents) for chunk in doc_chunks]
 
     #def split_one(doc):
     #   return splitter.split_documents([doc])
