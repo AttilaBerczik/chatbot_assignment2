@@ -236,9 +236,14 @@ if __name__ == "__main__":
     assert len(text_contents) == len(embeddings_vectors), \
         f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
 
-    db = FAISS.from_texts(text_contents, HuggingFaceEmbeddings(
-        model_name="BAAI/bge-large-en-v1.5"
-    ))
-    db.save_local(os.path.join("faiss_data", "faiss_index"))
+    # Reuse same model and ensure GPU
+    embeddings = HuggingFaceEmbeddings(
+        model_name="BAAI/bge-large-en-v1.5",
+        model_kwargs={"device": "cuda"}
+    )
+
+    os.makedirs("faiss_data", exist_ok=True)
+    db = FAISS.from_texts(text_contents, embeddings)
+    db.save_local("faiss_data/faiss_index")
 
     print("Ingestion complete! Vector store saved to faiss_data/faiss_index")
