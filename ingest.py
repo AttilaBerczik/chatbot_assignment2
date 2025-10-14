@@ -154,7 +154,15 @@ if __name__ == "__main__":
     pages = parallel_fetch(urls, headers, max_workers=MAX_WORKERS)
     print(f"Downloaded {len(pages)} pages successfully.")
 
-    all_documents = [Document(page_content=html, metadata={"source": url}) for url, html in pages]
+
+    def clean_html(raw_html):
+        """Strip tags and extract readable text from HTML."""
+        soup = BeautifulSoup(raw_html, "lxml")
+        text = soup.get_text(separator=" ", strip=True)
+        return text
+
+
+    all_documents = [Document(page_content=clean_html(html), metadata={"source": url}) for url, html in pages]
 
     print("Splitting text into chunks. ..")
     #splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
