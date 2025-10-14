@@ -9,7 +9,7 @@ from langchain_community.vectorstores import FAISS
 # Set a polite User-Agent so Wikipedia doesn’t block our requests
 os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
 
-def get_wiki_links(base_url, limit=1000):
+def get_wiki_links(base_url, limit=5):
     """Extract internal Wikipedia links from a page."""
     html = requests.get(base_url, headers={"User-Agent": os.environ["USER_AGENT"]}).text
     soup = BeautifulSoup(html, "html.parser")
@@ -27,7 +27,7 @@ def get_wiki_links(base_url, limit=1000):
 base_url = "https://en.wikipedia.org/wiki/Norway"
 
 # 2️⃣ Get related links (crawl a few linked Wikipedia pages)
-related_links = get_wiki_links(base_url, limit=1000)
+related_links = get_wiki_links(base_url, limit=5)
 urls = [base_url] + related_links  # Include the original Norway page
 
 # 3️⃣ Load all pages into LangChain Documents
