@@ -115,7 +115,7 @@ def initialize_chain():
         # Try to use Flash Attention 2 if available
         model_kwargs = {
             "trust_remote_code": True,
-            "torch_dtype": torch.float16,  # Always use FP16 on GPU for 2x speed
+            "dtype": torch.float16,  # Always use FP16 on GPU for 2x speed
             "device_map": "auto",  # Automatically spread across all 8 GPUs
             "low_cpu_mem_usage": True,
             "use_cache": True,  # Enable KV-cache for faster generation
