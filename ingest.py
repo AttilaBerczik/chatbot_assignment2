@@ -1,5 +1,8 @@
 import os
 import multiprocessing
+
+import vectors
+
 multiprocessing.set_start_method("spawn", force=True)
 from huggingface_hub import snapshot_download
 
@@ -105,14 +108,15 @@ def parallel_fetch(urls, headers, max_workers=10):
                 pages.append((url, content))
     return pages
 
+from bs4 import BeautifulSoup
+from langchain_core.documents import Document
+
 def clean_html(raw_html):
-    """Strip tags, scripts, and extract readable text."""
     soup = BeautifulSoup(raw_html, "lxml")
-    for tag in soup(["script", "style", "noscript"]):
+    for tag in soup(["script", "style", "footer", "header", "nav", "table", "sup"]):
         tag.extract()
-    text = soup.get_text(separator="\n", strip=True)
-    text = re.sub(r"\n{2,}", "\n", text)
-    return text
+    return soup.get_text(separator=" ", strip=True)
+
 
 def embed_on_gpu(gpu_id, docs_chunk):
     print(f"[GPU {gpu_id}] Starting embedding of {len(docs_chunk)} chunks...")
@@ -177,27 +181,36 @@ if __name__ == "__main__":
         embeddings_vectors = embeddings.embed_documents([d.page_content for d in texts])
 
     # ---------------- BUILD FAISS INDEX ----------------
-    print("Building FAISS vector store from precomputed embeddings...")
-    faiss.omp_set_num_threads(os.cpu_count())
+    from langchain_community.vectorstores import FAISS
+    from langchain_huggingface import HuggingFaceEmbeddings
+    import numpy as np
+    import faiss, os
 
-    text_contents = [d.page_content for d in texts]
-    assert len(text_contents) == len(embeddings_vectors), \
-        f"Mismatch: {len(text_contents)} texts vs {len(embeddings_vectors)} embeddings"
+    # Assume:
+    # texts = [...]  # list of Document objects
+    # vectors = [...]  # list of precomputed numpy arrays (one per document)
 
-    embedding_model = HuggingFaceEmbeddings(
-        model_name="BAAI/bge-large-en-v1.5",
-        model_kwargs={"device": "cpu"}
-    )
+    # Convert to FAISS index
+    embedding_size = len(vectors[0])
+    index = faiss.IndexFlatL2(embedding_size)
+    index.add(np.array(vectors).astype("float32"))
 
-    print(f"Adding {len(embeddings_vectors)} embeddings to FAISS index...")
-    db = FAISS.from_embeddings(
-        text_embeddings=list(zip(text_contents, embeddings_vectors)),
-        embedding=embedding_model
-    )
+    # Create embeddings object (so LangChain knows how to embed future queries)
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
 
+    # Build FAISS store from existing index + docs + embeddings
+    db = FAISS(embedding_function=embeddings, index=index, docstore={}, index_to_docstore_id={})
+
+    # Populate the docstore mappings
+    for i, doc in enumerate(texts):
+        db.docstore[str(i)] = doc
+        db.index_to_docstore_id[i] = str(i)
+
+    # Save it
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local("faiss_data/faiss_index")
-    print("✅ Ingestion complete! Vector store saved to faiss_data/faiss_index")
+
+    print("✅ Saved FAISS index with precomputed embeddings")
 
     # ---------------- VALIDATION ----------------
     print("\n🔍 Validating FAISS index with a sample query...")
