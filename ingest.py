@@ -1,5 +1,7 @@
 import os
 import multiprocessing
+from unittest import loader
+
 multiprocessing.set_start_method("spawn", force=True)
 from huggingface_hub import snapshot_download
 
@@ -113,11 +115,15 @@ def get_site_links(base_url, html, limit=1000):
 def fetch(url, headers):
     """Fetch a URL and return (url, html) or (url, None) if failed."""
     try:
+        docs = loader.load()
+        all_documents.extend(docs)
+        print(f"Loaded {url}")
         resp = requests.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
         print(f"Loaded: {url}")
         return url, resp.text
     except Exception as e:
+        print(f"Failed to load {url}: {e}")
         print(f"Failed: {url} -> {e}")
         return url, None
 
