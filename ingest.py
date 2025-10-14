@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     print(f"Adding {len(embeddings_vectors)} embeddings to FAISS index...")
     db = FAISS.from_embeddings(
-        embeddings=list(zip(text_contents, embeddings_vectors)),
+        text_embeddings=list(zip(text_contents, embeddings_vectors)),
         embedding=embedding_model
     )
 
