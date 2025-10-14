@@ -61,7 +61,10 @@ def initialize_chain():
 
         # Load the embeddings model
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-large-en-v1.5",
+            model_kwargs={"device": "cpu"}
+        )
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
