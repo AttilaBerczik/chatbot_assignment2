@@ -132,6 +132,15 @@ def parallel_fetch(urls, headers, max_workers=10):
                 pages.append((url, content))
     return pages
 
+def clean_html(raw_html):
+    """Strip tags, scripts, and extract readable text."""
+    soup = BeautifulSoup(raw_html, "lxml")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.extract()
+    text = soup.get_text(separator="\n", strip=True)
+    text = re.sub(r"\n{2,}", "\n", text)
+    return text
+
 def embed_on_gpu(gpu_id, docs_chunk):
     print(f"[GPU {gpu_id}] Starting embedding of {len(docs_chunk)} chunks...")
     embeddings = HuggingFaceEmbeddings(
@@ -154,7 +163,7 @@ if __name__ == "__main__":
     pages = parallel_fetch(urls, headers, max_workers=MAX_WORKERS)
     print(f"Downloaded {len(pages)} pages successfully.")
 
-    all_documents = [Document(page_content=html, metadata={"source": url}) for url, html in pages]
+    all_documents = [Document(page_content=clean_html(html), metadata={"source": url}) for url, html in pages]
 
     print("Splitting text into chunks. ..")
     #splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
