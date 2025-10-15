@@ -59,9 +59,16 @@ def initialize_chain():
         if not os.path.exists(FAISS_INDEX_PATH):
             return "FAISS index not found. Please run the ingestion script first."
 
+
         # Load the embeddings model
+        MODEL_NAME = "BAAI/bge-large-en-v1.5"
+        CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        embeddings = HuggingFaceEmbeddings(
+        model_name=MODEL_NAME,
+        cache_folder=CACHE_DIR,
+    )
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
