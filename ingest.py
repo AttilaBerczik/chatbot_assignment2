@@ -4,7 +4,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import TokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 import concurrent.futures
@@ -67,10 +67,10 @@ def crawl_and_embed(base_url, link_limit=10):
     # 3️⃣ Split into chunks
     print("Splitting text into chunks...")
 
-    splitter = RecursiveCharacterTextSplitter(
+    splitter = TokenTextSplitter(
         chunk_size=512,
         chunk_overlap=50,
-        separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+        encoding_name="cl100k_base"  # universal tokenizer
     )
 
     def split_one(doc):
