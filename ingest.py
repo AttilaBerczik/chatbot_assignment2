@@ -64,11 +64,13 @@ def crawl_and_embed(base_url, link_limit=10):
         print("No documents loaded. Exiting.")
         return
 
-        # 3️⃣ Split into chunks
-        print("Splitting text into chunks...")
+    print("Loading model and preparing splitter...")
 
-        from transformers import AutoTokenizer
+    # Use the cache directory you want
+    MODEL_NAME = "BAAI/bge-large-en-v1.5"
+    CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
 
+    # Token-based splitter using the same model’s tokenizer
     splitter = SentenceTransformersTokenTextSplitter(
         chunk_size=512,
         chunk_overlap=50,
@@ -77,7 +79,8 @@ def crawl_and_embed(base_url, link_limit=10):
     def split_one(doc):
         return splitter.split_documents([doc])
 
-    # Keep everything inside the with-block
+    # Parallel splitting with progress bar
+    print("Splitting text into chunks...")
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
         texts = [
             chunk
@@ -88,11 +91,15 @@ def crawl_and_embed(base_url, link_limit=10):
             )
             for chunk in doc_chunks
         ]
-    print(f"✂️ Split into {len(texts)} chunks.")
 
-    # 4️⃣ Generate embeddings
-    print("Creating Embeddings...")
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    print(f"Split into {len(texts)} chunks total.")
+
+    # Use the same model for embeddings, with the same cache
+    print("Creating embeddings...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name=MODEL_NAME,
+        cache_folder=CACHE_DIR,
+    )
 
     # 5️⃣ Build and save FAISS index
     print("Build and save FAISS index...")
