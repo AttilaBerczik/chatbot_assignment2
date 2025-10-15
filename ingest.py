@@ -67,10 +67,9 @@ def crawl_and_embed(base_url, link_limit=10):
     # 3️⃣ Split into chunks
     print("Splitting text into chunks...")
 
-    splitter = TokenTextSplitter(
+    splitter = SentenceTransformersTokenTextSplitter(
         chunk_size=512,
         chunk_overlap=50,
-        encoding_name="cl100k_base"  # universal tokenizer
     )
 
     def split_one(doc):
