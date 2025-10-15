@@ -4,8 +4,11 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+import concurrent.futures
+from tqdm import tqdm
 
 # Set a polite User-Agent
 os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
@@ -62,8 +65,28 @@ def crawl_and_embed(base_url, link_limit=10):
         return
 
     # 3️⃣ Split into chunks
-    text_splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
-    texts = text_splitter.split_documents(all_documents)
+    print("Splitting text into chunks...")
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=512,
+        chunk_overlap=50,
+        separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+    )
+
+    def split_one(doc):
+        return splitter.split_documents([doc])
+
+    # Keep everything inside the with-block
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        texts = [
+            chunk
+            for doc_chunks in tqdm(
+                executor.map(split_one, all_documents),
+                total=len(all_documents),
+                desc="Splitting docs"
+            )
+            for chunk in doc_chunks
+        ]
     print(f"✂️ Split into {len(texts)} chunks.")
 
     # 4️⃣ Generate embeddings
