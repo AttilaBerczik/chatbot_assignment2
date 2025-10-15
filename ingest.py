@@ -27,7 +27,7 @@ def get_wiki_links(base_url, limit=10):
 base_url = "https://en.wikipedia.org/wiki/Norway"
 
 # 2️⃣ Get related links (crawl a few linked Wikipedia pages)
-related_links = get_wiki_links(base_url, limit=1000)
+related_links = get_wiki_links(base_url, limit=10)
 urls = [base_url] + related_links  # Include the original Norway page
 
 # 3️⃣ Load all pages into LangChain Documents
