@@ -3,14 +3,8 @@ langchain-community
 langchain-core
 langchain-text-splitters
 faiss-cpu
-numpy<2
 sentence-transformers
 flask
 langchain-huggingface
 requests
 beautifulsoup4
-torch
-transformers
-accelerate
-lxml
-vectors

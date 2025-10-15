@@ -15,8 +15,6 @@ app = Flask(__name__)
 qa_chain = None
 tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
 MAX_TOKENS = 1024
-FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
-
 
 class TruncatingHuggingFacePipeline(HuggingFacePipeline):
     def __init__(self, pipeline, tokenizer, max_tokens):
@@ -50,13 +48,12 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
     def _call(self, prompt, stop=None):
         return self.__call__(prompt, stop=stop)
 
-
 def initialize_chain():
     """Initializes the conversational retrieval chain."""
     global qa_chain, db, llm
     try:
         # Check if the FAISS index exists
-        if not os.path.exists(FAISS_INDEX_PATH):
+        if not os.path.exists("faiss_index"):
             return "FAISS index not found. Please run the ingestion script first."
 
         # Load the embeddings model
@@ -65,15 +62,15 @@ def initialize_chain():
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
-        db = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+        db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
 
         # Initialize Hugging Face LLM pipeline
         print("Initializing Hugging Face LLM pipeline...")
-
+        
         # Load local text generation model
         generator = pipeline("text2text-generation", model="google/flan-t5-base")
         llm = TruncatingHuggingFacePipeline(generator, tokenizer, MAX_TOKENS)
-
+        
         print("Chatbot chain initialized successfully.")
         print("DB initialized:", db)
         print("LLM initialized:", llm)
@@ -82,18 +79,18 @@ def initialize_chain():
         print(f"Error during chain initialization: {e}")
         return f"Error during initialization: {e}"
 
-
 @app.route("/")
 def index():
     """Renders the main chat interface."""
     return render_template("index.html")
-
 
 @app.route("/query", methods=["POST"])
 def query():
     try:
         print("Entered /query endpoint")
         global db, llm  # Remove qa_chain
+
+       
 
         print("Request JSON:", request.json)
         user_query = request.json.get("query")
@@ -122,7 +119,6 @@ def query():
         print("Error processing query (outer):")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     init_error = initialize_chain()
