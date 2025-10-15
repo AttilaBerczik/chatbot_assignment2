@@ -70,29 +70,19 @@ def crawl_and_embed(base_url, link_limit=10):
     MODEL_NAME = "BAAI/bge-large-en-v1.5"
     CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
 
-    # Token-based splitter using the same model’s tokenizer
+    print("Splitting text into chunks...")
+
     splitter = SentenceTransformersTokenTextSplitter(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
         chunk_size=512,
         chunk_overlap=50,
     )
 
-    def split_one(doc):
-        return splitter.split_documents([doc])
+    texts = []
+    for doc in tqdm(all_documents, desc="Splitting docs"):
+        texts.extend(splitter.split_documents([doc]))
 
-    # Parallel splitting with progress bar
-    print("Splitting text into chunks...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        texts = [
-            chunk
-            for doc_chunks in tqdm(
-                executor.map(split_one, all_documents),
-                total=len(all_documents),
-                desc="Splitting docs"
-            )
-            for chunk in doc_chunks
-        ]
-
-    print(f"Split into {len(texts)} chunks total.")
+    print(f"✂️ Split into {len(texts)} chunks.")
 
     # Use the same model for embeddings, with the same cache
     print("Creating embeddings...")
