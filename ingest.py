@@ -67,16 +67,21 @@ def crawl_and_embed(base_url, link_limit=10):
     # 3️⃣ Split into chunks
     print("Splitting text into chunks...")
 
+    from transformers import AutoTokenizer
+
+    fast_tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     splitter = SentenceTransformersTokenTextSplitter(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
         chunk_size=512,
         chunk_overlap=50,
+        tokenizer=fast_tokenizer  # optional override
     )
 
     def split_one(doc):
         return splitter.split_documents([doc])
 
     # Keep everything inside the with-block
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
         texts = [
             chunk
             for doc_chunks in tqdm(
