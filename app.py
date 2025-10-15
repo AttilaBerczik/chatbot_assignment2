@@ -65,10 +65,7 @@ def initialize_chain():
         CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
 
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(
-        model_name=MODEL_NAME,
-        cache_folder=CACHE_DIR,
-    )
+        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME,cache_folder=CACHE_DIR)
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
