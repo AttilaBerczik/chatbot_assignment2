@@ -69,26 +69,26 @@ def crawl_and_embed(base_url, link_limit=10):
 
         from transformers import AutoTokenizer
 
-        splitter = SentenceTransformersTokenTextSplitter(
-            chunk_size=512,
-            chunk_overlap=50,
-        )
+    splitter = SentenceTransformersTokenTextSplitter(
+        chunk_size=512,
+        chunk_overlap=50,
+    )
 
-        def split_one(doc):
-            return splitter.split_documents([doc])
+    def split_one(doc):
+        return splitter.split_documents([doc])
 
-        # Keep everything inside the with-block
-        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-            texts = [
-                chunk
-                for doc_chunks in tqdm(
-                    executor.map(split_one, all_documents),
-                    total=len(all_documents),
-                    desc="Splitting docs"
-                )
-                for chunk in doc_chunks
-            ]
-        print(f"✂️ Split into {len(texts)} chunks.")
+    # Keep everything inside the with-block
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        texts = [
+            chunk
+            for doc_chunks in tqdm(
+                executor.map(split_one, all_documents),
+                total=len(all_documents),
+                desc="Splitting docs"
+            )
+            for chunk in doc_chunks
+        ]
+    print(f"✂️ Split into {len(texts)} chunks.")
 
     # 4️⃣ Generate embeddings
     print("Creating Embeddings...")
