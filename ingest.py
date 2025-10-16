@@ -48,17 +48,25 @@ def crawl_and_embed(base_url, link_limit=10):
     urls = [base_url] + related_links
 
     # 2️⃣ Load all pages
-    all_documents = []
-    for url in urls:
-        loader = WebBaseLoader(url)
-        try:
-            docs = loader.load()
-            all_documents.extend(docs)
-            print(f"Loaded {url}")
-        except Exception as e:
-            print(f"Failed to load {url}: {e}")
+    print(f"Found {len(urls)} URLs to load.")
 
-    print(f"Loaded {len(all_documents)} total documents.")
+    def load_one(url):
+        try:
+            loader = WebBaseLoader(url)
+            docs = loader.load()
+            print(f"✅ Loaded {url}")
+            return docs
+        except Exception as e:
+            print(f"❌ Failed to load {url}: {e}")
+            return []
+
+    all_documents = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        results = executor.map(load_one, urls)
+        for docs in results:
+            all_documents.extend(docs)
+
+    print(f"📚 Loaded {len(all_documents)} total documents.")
 
     if not all_documents:
         print("No documents loaded. Exiting.")
