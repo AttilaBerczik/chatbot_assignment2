@@ -111,6 +111,14 @@ def query():
 
         # Build prompt with retrieved context
         context = "\n".join([doc.page_content for doc in retrieved_docs])
+
+        # Token-limit safeguard before sending to model
+        input_ids = tokenizer.encode(context, add_special_tokens=False)
+        if len(input_ids) > MAX_TOKENS:
+            print(f"⚠️ Context too long ({len(input_ids)} tokens), truncating to {MAX_TOKENS}")
+            input_ids = input_ids[:MAX_TOKENS]
+            context = tokenizer.decode(input_ids, skip_special_tokens=True)
+
         template = "Context:\n{context}\n\nAnswer the question: {user_query}"
         prompt = PromptTemplate.from_template(template)
 
