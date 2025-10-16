@@ -72,8 +72,11 @@ def crawl_and_embed(base_url, link_limit=10):
 
     print("Splitting text into chunks...")
 
+    from transformers import AutoTokenizer
+
+    # Use the same tokenizer as SentenceTransformers for consistent token counting
+
     splitter = SentenceTransformersTokenTextSplitter(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
         chunk_size=512,
         chunk_overlap=50,
     )
@@ -82,7 +85,15 @@ def crawl_and_embed(base_url, link_limit=10):
     for doc in tqdm(all_documents, desc="Splitting docs"):
         texts.extend(splitter.split_documents([doc]))
 
+    tokenizer = splitter.tokenizer
+
+    # Compute token lengths of all chunks
+    chunk_token_counts = [len(tokenizer.encode(t.page_content)) for t in texts]
+    max_tokens = max(chunk_token_counts) if chunk_token_counts else 0
+
+    print(f"Tokenizer: {tokenizer.__class__.__name__}")
     print(f"✂️ Split into {len(texts)} chunks.")
+    print(f"🔍 Largest chunk has {max_tokens} tokens.")
 
     # Use the same model for embeddings, with the same cache
     print("Creating embeddings...")
