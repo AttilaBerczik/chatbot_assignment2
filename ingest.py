@@ -73,8 +73,8 @@ def crawl_and_embed(base_url, link_limit=10):
     print("Splitting text into chunks...")
 
     from transformers import AutoTokenizer
-
-    # Use the same tokenizer as SentenceTransformers for consistent token counting
+    from tqdm import tqdm
+    from langchain.schema import Document
 
     splitter = SentenceTransformersTokenTextSplitter(
         model_name=MODEL_NAME,
@@ -87,14 +87,25 @@ def crawl_and_embed(base_url, link_limit=10):
         texts.extend(splitter.split_documents([doc]))
 
     tokenizer = splitter.tokenizer
+    max_tokens = tokenizer.model_max_length  # usually 512
 
-    # Compute token lengths of all chunks
-    chunk_token_counts = [len(tokenizer.encode(t.page_content)) for t in texts]
-    max_tokens = max(chunk_token_counts) if chunk_token_counts else 0
+    # Enforce hard token limit (simple)
+    safe_texts = []
+    for t in texts:
+        ids = tokenizer.encode(t.page_content, add_special_tokens=False)
+        if len(ids) <= max_tokens:
+            safe_texts.append(t)
+        else:
+            # break into safe slices with small overlap
+            for i in range(0, len(ids), max_tokens - 50):
+                piece = ids[i:i + max_tokens]
+                text_piece = tokenizer.decode(piece, skip_special_tokens=True)
+                safe_texts.append(Document(page_content=text_piece, metadata=t.metadata))
 
+    chunk_token_counts = [len(tokenizer.encode(t.page_content, add_special_tokens=False)) for t in safe_texts]
     print(f"Tokenizer: {tokenizer.__class__.__name__}")
-    print(f"✂️ Split into {len(texts)} chunks.")
-    print(f"🔍 Largest chunk has {max_tokens} tokens.")
+    print(f"✂️ Split into {len(safe_texts)} chunks.")
+    print(f"🔍 Largest chunk has {max(chunk_token_counts) if chunk_token_counts else 0} tokens.")
 
     # Use the same model for embeddings, with the same cache
     print("Creating embeddings...")
