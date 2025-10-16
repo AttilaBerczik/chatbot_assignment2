@@ -78,7 +78,7 @@ def crawl_and_embed(base_url, link_limit=10):
 
     splitter = SentenceTransformersTokenTextSplitter(
         model_name=MODEL_NAME,
-        chunk_size=480,
+        chunk_size=300,
         chunk_overlap=50,
     )
 
