@@ -54,10 +54,10 @@ def crawl_and_embed(base_url, link_limit=10):
         try:
             loader = WebBaseLoader(url)
             docs = loader.load()
-            print(f"✅ Loaded {url}")
+            print(f"Loaded {url}")
             return docs
         except Exception as e:
-            print(f"❌ Failed to load {url}: {e}")
+            print(f"Failed to load {url}: {e}")
             return []
 
     all_documents = []
