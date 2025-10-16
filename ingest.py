@@ -77,6 +77,7 @@ def crawl_and_embed(base_url, link_limit=10):
     # Use the same tokenizer as SentenceTransformers for consistent token counting
 
     splitter = SentenceTransformersTokenTextSplitter(
+        model_name=MODEL_NAME,
         chunk_size=512,
         chunk_overlap=50,
     )
