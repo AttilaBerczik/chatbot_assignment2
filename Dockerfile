@@ -32,9 +32,11 @@ RUN mkdir -p /app/models /app/faiss_data
 COPY download_models.py .
 
 # Download models with verbose output
+# Step 10/13: Download models AND clean up the temporary cache in the same layer
 RUN echo "Starting model downloads..." && \
     python download_models.py && \
-    echo "Model downloads completed"
+    echo "Model downloads completed" && \
+    rm -rf /root/.cache/huggingface
 
 # Copy the rest of the application files
 COPY . .
