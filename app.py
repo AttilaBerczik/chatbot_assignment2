@@ -2,15 +2,15 @@ from itertools import chain
 import os
 import torch
 import json
-import time  # Add missing import
-from flask import Flask, render_template, request, jsonify
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-from langchain_community.vectorstores import FAISS
-from transformers import pipeline, AutoTokenizer
-from langchain_huggingface import HuggingFacePipeline
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+import time
 from typing import Optional
+
+from flask import Flask, render_template, request, jsonify
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings, HuggingFacePipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 app = Flask(__name__)
 qa_chain = None
@@ -150,8 +150,7 @@ def initialize_chain():
             return_full_text=False
         )
 
-        # Load local text generation model
-        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+        # Wrap in TruncatingHuggingFacePipeline
         llm = TruncatingHuggingFacePipeline(generator, tokenizer, MAX_TOKENS)
 
         print("Chatbot chain initialized successfully.")

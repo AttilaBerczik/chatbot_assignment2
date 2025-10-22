@@ -122,19 +122,24 @@ def crawl_and_embed(base_url, link_limit=10):
     )
 
     # 5️⃣ Build and save FAISS index
-    print("Build and save FAISS index...")
-    db = FAISS.from_documents(texts, embeddings)
+    print("Building FAISS index from documents...")
+    db = FAISS.from_documents(safe_texts, embeddings)
 
-# 5️⃣ Convert text into embeddings using the same model as app.py
-print(f"Loading embeddings model from {EMB_LOCAL_DIR}...")
-embeddings = HuggingFaceEmbeddings(model_name=EMB_LOCAL_DIR, model_kwargs={'device': 'cpu'})
+    # Save the vector store to a local file
+    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+    os.makedirs("faiss_data", exist_ok=True)
+    db.save_local(FAISS_INDEX_PATH)
 
-# Create a FAISS vector store from the documents
-db = FAISS.from_documents(texts, embeddings)
+    print(f"✓ Vector store created and saved to {FAISS_INDEX_PATH}")
+    print(f"✓ Total vectors in index: {db.index.ntotal}")
 
-# Save the vector store to a local file
-FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
-os.makedirs("faiss_data", exist_ok=True)
-db.save_local(FAISS_INDEX_PATH)
 
-print("Vector store created and saved to faiss_data/faiss_index.")
+if __name__ == "__main__":
+    # Example usage - replace with your target URL
+    import sys
+    if len(sys.argv) > 1:
+        base_url = sys.argv[1]
+    else:
+        base_url = input("Enter the base URL to crawl: ")
+
+    crawl_and_embed(base_url, link_limit=10)

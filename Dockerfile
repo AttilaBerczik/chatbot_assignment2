@@ -1,13 +1,35 @@
 # syntax=docker/dockerfile:1.4
 
-# Use the official Python image as a base
-FROM python:3.10-slim
+# Use NVIDIA CUDA base image for GPU support and Flash Attention compilation
+FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
+
+# Install Python and build dependencies required for Flash Attention
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3.10-dev \
+    build-essential \
+    git \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.10 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file and install dependencies
+# Copy the requirements file
 COPY requirements.txt .
+
+# Install PyTorch with CUDA support first (required for Flash Attention)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install Flash Attention (requires CUDA and build tools - takes time to compile)
+RUN pip install --no-cache-dir flash-attn --no-build-isolation
+
+# Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables for model download
