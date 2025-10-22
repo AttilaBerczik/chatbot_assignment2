@@ -2,6 +2,7 @@ import os
 import requests
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter
 from langchain.text_splitter import TokenTextSplitter
@@ -132,7 +133,43 @@ print(f"Loading embeddings model from {EMB_LOCAL_DIR}...")
 embeddings = HuggingFaceEmbeddings(model_name=EMB_LOCAL_DIR, model_kwargs={'device': 'cpu'})
 
 # Create a FAISS vector store from the documents
+print("Creating FAISS vector store with optimized indexing...")
+
+# First create basic index to get embeddings
 db = FAISS.from_documents(texts, embeddings)
+
+# Get the number of vectors and dimension
+n_vectors = db.index.ntotal
+d = db.index.d
+
+print(f"Created index with {n_vectors} vectors of dimension {d}")
+
+# Optimize the index if we have enough vectors
+if n_vectors > 100:
+    # Use IVF (Inverted File) with PQ (Product Quantization) for faster search
+    # nlist is the number of clusters (sqrt(n) is a good heuristic)
+    nlist = min(int(n_vectors ** 0.5), 100)  # Cap at 100 clusters
+
+    print(f"Optimizing index with IVF-PQ (nlist={nlist})...")
+
+    # Create IVF index with product quantization
+    quantizer = faiss.IndexFlatL2(d)
+    index = faiss.IndexIVFPQ(quantizer, d, nlist, 8, 8)  # 8 subquantizers, 8 bits each
+
+    # Train the index
+    print("Training index...")
+    vectors = db.index.reconstruct_n(0, n_vectors)
+    index.train(vectors)
+    index.add(vectors)
+
+    # Set search parameters (nprobe = number of clusters to search)
+    index.nprobe = min(10, nlist)  # Search 10 clusters (or fewer if nlist is small)
+
+    # Replace the index in the FAISS object
+    db.index = index
+    print(f"✓ Index optimized! Search will query {index.nprobe}/{nlist} clusters")
+else:
+    print(f"Small dataset ({n_vectors} vectors), using flat index (no optimization needed)")
 
 # Save the vector store to a local file
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")

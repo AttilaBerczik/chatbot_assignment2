@@ -129,7 +129,7 @@
         <div class="chat-box" id="chat-box">
             <div class="message bot-message">
                 <div class="avatar"><i class="fa-solid fa-robot"></i></div>
-                <div class="bubble">Hello! I'm your Docker RAG chatbot. Ask me anything about Norway.</div>
+                <div class="bubble" id="welcome-message">Hello! I'm your Docker RAG chatbot. Loading topic information...</div>
             </div>
         </div>
         <div class="input-container">
@@ -139,6 +139,28 @@
     </div>
 
     <script>
+        // Fetch topic information when page loads
+        async function loadTopic() {
+            try {
+                const response = await fetch('/topic');
+                const data = await response.json();
+                const welcomeMessage = document.getElementById('welcome-message');
+
+                if (data.topic && data.topic !== "the ingested content") {
+                    welcomeMessage.textContent = `Hello! I'm your Docker RAG chatbot. Ask me anything about ${data.topic}.`;
+                } else {
+                    welcomeMessage.textContent = "Hello! I'm your Docker RAG chatbot. Ask me questions!";
+                }
+            } catch (error) {
+                console.error('Error loading topic:', error);
+                const welcomeMessage = document.getElementById('welcome-message');
+                welcomeMessage.textContent = "Hello! I'm your Docker RAG chatbot. Ask me questions!";
+            }
+        }
+
+        // Load topic on page load
+        window.addEventListener('DOMContentLoaded', loadTopic);
+
         document.getElementById('send-button').addEventListener('click', sendMessage);
         document.getElementById('user-input').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
