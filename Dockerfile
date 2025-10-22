@@ -1,45 +1,40 @@
-# syntax=docker/dockerfile:1.4
+# Use official Python image as base (more reliable than CUDA)
+FROM python:3.10
 
-# Use NVIDIA CUDA base image for GPU support and Flash Attention compilation
-FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
-
-# Install Python and build dependencies required for Flash Attention
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3-pip \
-    python3.10-dev \
     build-essential \
     git \
-    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.10 as default
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
-    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
-
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file
+# Copy requirements first
 COPY requirements.txt .
 
-# Install PyTorch with CUDA support first (required for Flash Attention)
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# Install Python dependencies from requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Install Flash Attention (requires CUDA and build tools - takes time to compile)
-RUN pip install --no-cache-dir flash-attn --no-build-isolation
-
-# Install remaining dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Try to install flash-attn, but don't fail if it doesn't work
+RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention installation skipped (optional optimization)"
 
 # Set environment variables for model download
-ENV HF_HUB_DISABLE_PROGRESS_BARS=1 \
-    HF_HUB_TIMEOUT=300 \
-    HF_MODELS_DIR=/app/models
+ENV HF_HUB_DISABLE_PROGRESS_BARS=0 \
+    HF_HUB_TIMEOUT=600 \
+    HF_MODELS_DIR=/app/models \
+    PYTHONUNBUFFERED=1
 
-# Copy download script and run it to download models during build
+# Create models directory
+RUN mkdir -p /app/models /app/faiss_data
+
+# Copy download script
 COPY download_models.py .
-RUN python download_models.py
+
+# Download models with verbose output
+RUN echo "Starting model downloads..." && \
+    python download_models.py && \
+    echo "Model downloads completed"
 
 # Copy the rest of the application files
 COPY . .
@@ -47,5 +42,5 @@ COPY . .
 # Expose the port the Flask app runs on
 EXPOSE 5000
 
-# Command to run the Flask application
-CMD ["python", "app.py"]
+# Command to run the Flask application with unbuffered output
+CMD ["python", "-u", "app.py"]
