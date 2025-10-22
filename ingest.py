@@ -1,114 +1,132 @@
 import os
 import requests
-import json
-import faiss
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter
+from langchain.text_splitter import TokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+import concurrent.futures
+from tqdm import tqdm
 
 # Model paths (same as in app.py - use pre-downloaded models)
 MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
 EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
 
-def get_page_title(url):
-    """Extract the page title from HTML."""
+def get_internal_links(base_url, limit=10):
+    """Extract internal links from any website (same domain only)."""
     try:
-        html = requests.get(url, headers={"User-Agent": os.environ.get("USER_AGENT", "Mozilla/5.0")}, timeout=10).text
-        soup = BeautifulSoup(html, "html.parser")
-        title = soup.find("title")
-        if title:
-            return title.get_text().strip()
-        # Fallback to h1
-        h1 = soup.find("h1")
-        if h1:
-            return h1.get_text().strip()
-    except:
-        pass
-    return None
-
-def get_links_from_page(base_url, limit=5):
-    """Extract internal links from any webpage (not just Wikipedia)."""
-    try:
-        html = requests.get(base_url, headers={"User-Agent": os.environ.get("USER_AGENT", "Mozilla/5.0")}, timeout=10).text
-        soup = BeautifulSoup(html, "html.parser")
-
-        base_domain = urlparse(base_url).netloc
-        links = set()
-
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            # Convert relative URLs to absolute
-            full_url = urljoin(base_url, href)
-            parsed = urlparse(full_url)
-
-            # Only include links from the same domain, skip anchors, javascript, etc.
-            if (parsed.netloc == base_domain and
-                parsed.scheme in ['http', 'https'] and
-                not parsed.path.endswith(('.pdf', '.jpg', '.png', '.gif', '.zip')) and
-                '#' not in parsed.path):
-                links.add(full_url)
-                if len(links) >= limit:
-                    break
-        return list(links)
+        response = requests.get(base_url, headers={"User-Agent": os.environ["USER_AGENT"]}, timeout=10)
+        response.raise_for_status()
     except Exception as e:
-        print(f"Error extracting links from {base_url}: {e}")
+        print(f"Failed to fetch {base_url}: {e}")
         return []
 
-def extract_domain_name(url):
-    """Extract a clean domain name from URL."""
-    parsed = urlparse(url)
-    domain = parsed.netloc
-    # Remove www. prefix
-    if domain.startswith('www.'):
-        domain = domain[4:]
-    return domain
+    soup = BeautifulSoup(response.text, "html.parser")
+    domain = urlparse(base_url).netloc
+    links = set()
 
-# 1️⃣ Starting page - YOU CAN CHANGE THIS TO ANY WEBSITE
-base_url = "https://en.wikipedia.org/wiki/Rickard_Sarby"
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        full_url = urljoin(base_url, href)
+        parsed = urlparse(full_url)
 
-print(f"Starting crawl from: {base_url}")
+        # Only keep links within the same domain and HTTP(S)
+        if parsed.netloc == domain and parsed.scheme in ["http", "https"]:
+            links.add(full_url)
 
-# Get the title of the main page
-main_title = get_page_title(base_url)
-if not main_title:
-    # Fallback: extract from URL
-    if "/wiki/" in base_url:
-        main_title = base_url.split("/wiki/")[-1].replace("_", " ")
-    else:
-        main_title = extract_domain_name(base_url)
+        if len(links) >= limit:
+            break
 
-# Clean up titles for Wikipedia pages, removing source suffix
-domain = extract_domain_name(base_url)
-if "wikipedia.org" in domain and " - " in main_title:
-    main_title = main_title.split(" - ")[0]
+    return list(links)
 
-print(f"Main topic: {main_title}")
 
-# 2️⃣ Get related links (crawl a few linked pages from the same domain)
-related_links = get_links_from_page(base_url, limit=5)
-urls = [base_url] + related_links
+def crawl_and_embed(base_url, link_limit=10):
+    """Crawl a website and create FAISS embeddings."""
+    # 1️⃣ Get related internal links
+    related_links = get_internal_links(base_url, limit=link_limit)
+    urls = [base_url] + related_links
 
-print(f"Found {len(urls)} URLs to crawl")
+    # 2️⃣ Load all pages
+    print(f"Found {len(urls)} URLs to load.")
 
-# 3️⃣ Load all pages into LangChain Documents
-all_documents = []
-for url in urls:
-    loader = WebBaseLoader(url)
-    try:
-        docs = loader.load()
-        all_documents.extend(docs)
-        print(f"✓ Loaded {url}")
-    except Exception as e:
-        print(f"✗ Failed to load {url}: {e}")
+    def load_one(url):
+        try:
+            loader = WebBaseLoader(url)
+            docs = loader.load()
+            print(f"Loaded {url}")
+            return docs
+        except Exception as e:
+            print(f"Failed to load {url}: {e}")
+            return []
 
-print(f"\nLoaded {len(all_documents)} total documents.")
+    all_documents = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        results = executor.map(load_one, urls)
+        for docs in results:
+            all_documents.extend(docs)
 
-# 4️⃣ Split long text into chunks for embedding
-text_splitter = SentenceTransformersTokenTextSplitter(chunk_size=512, chunk_overlap=50)
-texts = text_splitter.split_documents(all_documents)
+    print(f"📚 Loaded {len(all_documents)} total documents.")
+
+    if not all_documents:
+        print("No documents loaded. Exiting.")
+        return
+
+    print("Loading model and preparing splitter...")
+
+    # Use the cache directory you want
+    MODEL_NAME = "BAAI/bge-large-en-v1.5"
+    CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+
+    print("Splitting text into chunks...")
+
+    from transformers import AutoTokenizer
+    from tqdm import tqdm
+    from langchain.schema import Document
+
+    splitter = SentenceTransformersTokenTextSplitter(
+        model_name=MODEL_NAME,
+        chunk_size=300,
+        chunk_overlap=50,
+    )
+
+    texts = []
+    for doc in tqdm(all_documents, desc="Splitting docs"):
+        texts.extend(splitter.split_documents([doc]))
+
+    tokenizer = splitter.tokenizer
+    max_tokens = tokenizer.model_max_length  # usually 512
+
+    # Enforce hard token limit (simple)
+    safe_texts = []
+    for t in texts:
+        ids = tokenizer.encode(t.page_content, add_special_tokens=False)
+        if len(ids) <= max_tokens:
+            safe_texts.append(t)
+        else:
+            # break into safe slices with small overlap
+            for i in range(0, len(ids), max_tokens - 50):
+                piece = ids[i:i + max_tokens]
+                text_piece = tokenizer.decode(piece, skip_special_tokens=True)
+                safe_texts.append(Document(page_content=text_piece, metadata=t.metadata))
+
+    chunk_token_counts = [len(tokenizer.encode(t.page_content, add_special_tokens=False)) for t in safe_texts]
+    print(f"Tokenizer: {tokenizer.__class__.__name__}")
+    print(f"✂️ Split into {len(safe_texts)} chunks.")
+    print(f"🔍 Largest chunk has {max(chunk_token_counts) if chunk_token_counts else 0} tokens.")
+
+    # Use the same model for embeddings, with the same cache
+    print("Creating embeddings...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name=MODEL_NAME,
+        cache_folder=CACHE_DIR,
+    )
+
+    # 5️⃣ Build and save FAISS index
+    print("Build and save FAISS index...")
+    db = FAISS.from_documents(texts, embeddings)
 
 # 5️⃣ Convert text into embeddings using the same model as app.py
 print(f"Loading embeddings model from {EMB_LOCAL_DIR}...")
@@ -158,26 +176,4 @@ FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 os.makedirs("faiss_data", exist_ok=True)
 db.save_local(FAISS_INDEX_PATH)
 
-# Save metadata about ingested content
-metadata = {
-    "base_url": base_url,
-    "base_topic": main_title,
-    "domain": extract_domain_name(base_url),
-    "all_urls": urls,
-    "total_documents": len(all_documents),
-    "total_chunks": len(texts),
-    "n_vectors": n_vectors,
-    "vector_dimension": d,
-    "index_type": "IVF-PQ" if n_vectors > 100 else "Flat"
-}
-
-metadata_path = os.path.join("faiss_data", "metadata.json")
-with open(metadata_path, "w") as f:
-    json.dump(metadata, f, indent=2)
-
-print(f"\n✓ Vector store created and saved to {FAISS_INDEX_PATH}")
-print(f"✓ Metadata saved to {metadata_path}")
-print(f"✓ Topic: {metadata['base_topic']}")
-print(f"✓ Domain: {metadata['domain']}")
-print(f"✓ Index type: {metadata['index_type']}")
-print(f"✓ Vectors: {metadata['n_vectors']}")
+print("Vector store created and saved to faiss_data/faiss_index.")

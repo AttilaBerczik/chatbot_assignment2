@@ -1,18 +1,13 @@
+from itertools import chain
 import os
-
-# Disable progress bars for cleaner output
-os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-os.environ["HF_HUB_TIMEOUT"] = "300"  # 5 minute timeout
-
 import torch
 import json
 import time  # Add missing import
 from flask import Flask, render_template, request, jsonify
 from langchain.chains import ConversationalRetrievalChain
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
+from transformers import pipeline, AutoTokenizer
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 from typing import Optional
@@ -73,6 +68,7 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
         # Delegate to base LLM _call method
         return super()._call(truncated_prompt, stop=stop)
 
+
 def initialize_chain():
     """Initializes the conversational retrieval chain."""
     global qa_chain, db, llm
@@ -81,12 +77,13 @@ def initialize_chain():
         if not os.path.exists(FAISS_INDEX_PATH):
             return "FAISS index not found. Please run the ingestion script first."
 
-        # Load the embeddings model (from local path, on GPU if available)
+
+        # Load the embeddings model
+        MODEL_NAME = "BAAI/bge-large-en-v1.5"
+        CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(
-            model_name=EMB_LOCAL_DIR,
-            model_kwargs={'device': device}
-        )
+        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME,cache_folder=CACHE_DIR)
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
@@ -153,8 +150,10 @@ def initialize_chain():
             return_full_text=False
         )
 
+        # Load local text generation model
+        generator = pipeline("text2text-generation", model="google/flan-t5-base")
         llm = TruncatingHuggingFacePipeline(generator, tokenizer, MAX_TOKENS)
-        
+
         print("Chatbot chain initialized successfully.")
         print("DB initialized:", db)
         print("LLM initialized:", llm)
@@ -181,10 +180,9 @@ def initialize_chain():
 
         return None  # No error
     except Exception as e:
-        import traceback
         print(f"Error during chain initialization: {e}")
-        traceback.print_exc()
         return f"Error during initialization: {e}"
+
 
 @app.route("/")
 def index():
@@ -299,6 +297,7 @@ Answer:"""
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     init_error = initialize_chain()
