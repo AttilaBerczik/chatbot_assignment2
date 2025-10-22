@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/app
+    environment:
+      - USER_AGENT=Group 2 (+https://uit.no)
     command: python ingest.py
 
   llm-chatbot-app:

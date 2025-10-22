@@ -26,12 +26,12 @@ docker build -t llm-chatbot-app .
 ## 5. Run the Ingestion Script
 Creates the FAISS index for the chatbot.
 ```bash
-docker run --rm -v $(pwd)/faiss_data:/app/faiss_data llm-chatbot-app python ingest.py
+docker run --rm --gpus all -v $(pwd)/faiss_data:/app/faiss_data llm-chatbot-app python ingest.py
 ```
 
 ## 6. Serve the Chatbot App
 ```bash
-docker run -p 5000:5000 -v $(pwd)/faiss_data:/app/faiss_data llm-chatbot-app
+docker run --gpus all -p 5000:5000 -v $(pwd)/faiss_data:/app/faiss_data llm-chatbot-app
 ```
 
 ## 7. Access the App via SSH Tunnel

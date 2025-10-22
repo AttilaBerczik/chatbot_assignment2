@@ -8,4 +8,7 @@ flask
 langchain-huggingface
 requests
 beautifulsoup4
-tiktoken
+torch
+transformers
+accelerate
+huggingface_hub
