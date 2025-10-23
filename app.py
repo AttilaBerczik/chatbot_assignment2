@@ -182,34 +182,31 @@ def initialize_chain():
         # Initialize Hugging Face LLM pipeline with GPU optimization
         print("Initializing Hugging Face LLM pipeline...")
 
-        # Load model with optimizations and extended context support
-        print(f"Loading model from {LLM_LOCAL_DIR} with 20k context support...")
-        print("⚡ Applying speed optimizations:")
-        print("  - Multi-GPU tensor parallelism (8x A100)")
-        print("  - FP16 precision for 2x speed")
-        print("  - KV-cache enabled")
+        print(f"Loading Qwen model from {LLM_LOCAL_DIR} with extended context...")
+        print("⚡ Applying optimizations:")
+        print("  - device_map='auto' for multi-GPU")
+        print("  - dtype=torch.float16 for 2x speed")
+        print("  - use_cache=True for faster generation")
 
-        # Try to use Flash Attention 2 if available
         model_kwargs = {
             "trust_remote_code": True,
-            "dtype": torch.float16,  # Always use FP16 on GPU for 2x speed
-            "device_map": "auto",  # Automatically spread across all 8 GPUs
+            "dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
+            "device_map": "auto" if torch.cuda.is_available() else None,
             "low_cpu_mem_usage": True,
-            "use_cache": True,  # Enable KV-cache for faster generation
+            "use_cache": True,
         }
 
-        # Try Flash Attention 2 - provides 3-4x speedup if available
+        # Try Flash Attention 2 if available
         try:
             model_kwargs["attn_implementation"] = "flash_attention_2"
             model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
-            print("  ✓ Flash Attention 2 enabled (3-4x faster attention)")
+            print("  ✓ Flash Attention 2 enabled")
         except Exception as e:
-            print(f"  ⚠ Flash Attention 2 not available, using default attention: {e}")
-            # Fall back to default attention
+            print(f"  ⚠ Flash Attention 2 not available: {e}")
             model_kwargs.pop("attn_implementation", None)
             model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
 
-        # Apply BetterTransformer optimization for additional 20-30% speedup
+        # Optional BetterTransformer
         try:
             from optimum.bettertransformer import BetterTransformer
             print("  - Applying BetterTransformer...")
@@ -218,7 +215,7 @@ def initialize_chain():
         except Exception as e:
             print(f"  ⚠ BetterTransformer not available: {e}")
 
-        # Create pipeline - don't specify device when using device_map="auto"
+        # ✅ Use Qwen2.5-7B-Instruct for text generation
         generator = pipeline(
             "text-generation",
             model=model,
@@ -227,11 +224,10 @@ def initialize_chain():
             temperature=0.7,
             top_p=0.9,
             do_sample=True,
-            return_full_text=False
+            return_full_text=False,
         )
 
-        # Load local text generation model
-        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+        # Wrap the pipeline
         llm = TruncatingHuggingFacePipeline(generator, tokenizer, MAX_TOKENS)
 
         print("Chatbot chain initialized successfully.")
