@@ -8,6 +8,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 import concurrent.futures
 from tqdm import tqdm
+from transformers import AutoTokenizer
+from langchain_core.documents import Document
 
 # Set a polite User-Agent
 os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
@@ -79,9 +81,6 @@ def crawl_and_embed(base_url, link_limit=10):
 
     print("Splitting text into chunks...")
 
-    from transformers import AutoTokenizer
-    from tqdm import tqdm
-    from langchain.schema import Document
 
     splitter = SentenceTransformersTokenTextSplitter(
         model_name=MODEL_NAME,
