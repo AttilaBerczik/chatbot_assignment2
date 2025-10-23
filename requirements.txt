@@ -13,3 +13,5 @@ torch
 transformers
 accelerate
 huggingface_hub
+tqdm
+optimum
