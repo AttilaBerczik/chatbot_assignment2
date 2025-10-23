@@ -107,10 +107,17 @@ def query():
 
         retrieved_docs = db.similarity_search(user_query)
         for doc in retrieved_docs:
-            print(doc.page_content)
+            print(doc.page_content[:100] + "...")  # Print first 100 chars
 
         # Build prompt with retrieved context
-        context = "\n".join([doc.page_content for doc in retrieved_docs])
+        context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+
+        # Check context size and truncate if needed
+        context_tokens = tokenizer.encode(context)
+        if len(context_tokens) > MAX_TOKENS - 1000:  # Reserve 1000 tokens for question and answer
+            print(f"Context too long ({len(context_tokens)} tokens), truncating...")
+            context_tokens = context_tokens[:MAX_TOKENS - 1000]
+            context = tokenizer.decode(context_tokens)
 
         # Token-limit safeguard before sending to model
         input_ids = tokenizer.encode(context, add_special_tokens=False)
