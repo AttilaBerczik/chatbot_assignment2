@@ -36,14 +36,6 @@ ENV HF_HOME=/root/chatbot_assignment2/models_cache \
 # Create required directories
 RUN mkdir -p /root/chatbot_assignment2/models_cache /app/faiss_data
 
-# ================================
-# 📥 Pre-download Models
-# ================================
-# Use huggingface-cli instead of python -m
-RUN huggingface-cli download Qwen/Qwen2.5-7B-Instruct \
-    --local-dir /root/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct && \
-    huggingface-cli download BAAI/bge-large-en-v1.5 \
-    --local-dir /root/chatbot_assignment2/models_cache/bge-large-en-v1.5
 
 # ================================
 # 🧠 Copy Application

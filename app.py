@@ -21,6 +21,45 @@ import os
 import sys
 from transformers import AutoTokenizer
 
+import os
+import subprocess
+from pathlib import Path
+
+# --- Auto-download models if missing ---
+HF_CACHE = os.getenv("HF_HOME", "/root/chatbot_assignment2/models_cache")
+LLM_DIR = Path(HF_CACHE) / "Qwen2.5-7B-Instruct"
+EMBEDDINGS_DIR = Path(HF_CACHE) / "bge-large-en-v1.5"
+
+def ensure_model(model_name: str, target_dir: Path):
+    """Ensure model is present locally; download if missing."""
+    if not target_dir.exists() or not any(target_dir.iterdir()):
+        print(f"⚠️  Model '{model_name}' not found locally. Downloading to {target_dir} ...")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            subprocess.run(
+                [
+                    "huggingface-cli", "download", model_name,
+                    "--local-dir", str(target_dir),
+                    "--local-dir-use-symlinks", "False"
+                ],
+                check=True
+            )
+            print(f"✅ Download complete for {model_name}")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to download {model_name}: {e}")
+            exit(1)
+    else:
+        print(f"✅ Found {model_name} in cache.")
+
+# Check both models
+ensure_model("Qwen/Qwen2.5-7B-Instruct", LLM_DIR)
+ensure_model("BAAI/bge-large-en-v1.5", EMBEDDINGS_DIR)
+
+print(f"✅ Using HF cache directory: {HF_CACHE}")
+print(f"✅ LLM path: {LLM_DIR}")
+print(f"✅ Embeddings path: {EMBEDDINGS_DIR}")
+
+
 # -----------------------------------------------------------------------------
 # Hugging Face Cache + Local Model Setup
 # -----------------------------------------------------------------------------
