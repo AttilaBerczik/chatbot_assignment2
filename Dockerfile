@@ -19,23 +19,29 @@ RUN pip install --upgrade pip && \
 # Try to install flash-attn, but don't fail if it doesn't work
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention installation skipped (optional optimization)"
 
-# Set environment variables for a unified models cache
-ENV PYTHONUNBUFFERED=1 \
-    MODELS_CACHE_DIR=/cache \
-    HF_HOME=/cache \
-    HUGGINGFACE_HUB_CACHE=/cache
-
 # Create directories
-RUN mkdir -p /app/faiss_data /cache
+RUN mkdir -p /app/faiss_data /app/models_cache /image_models_cache
 
 # Copy the application files
 COPY . .
 
-# Download models into the shared cache during build
-RUN python -u download_models.py
+# Download models into an image-baked cache during build
+# We'll seed the runtime cache from this on the first container start
+RUN MODELS_CACHE_DIR=/image_models_cache python -u download_models.py
+
+# Set environment variables for a unified runtime models cache under /app/models_cache
+ENV PYTHONUNBUFFERED=1 \
+    MODELS_CACHE_DIR=/app/models_cache \
+    HF_HOME=/app/models_cache \
+    HUGGINGFACE_HUB_CACHE=/app/models_cache \
+    TRANSFORMERS_CACHE=/app/models_cache
+
+# Add a simple entrypoint to seed the runtime cache from the baked cache if it's empty
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Expose the port the Flask app runs on
 EXPOSE 5000
 
-# Command to run the Flask application with unbuffered output
-CMD ["python", "-u", "app.py"]
+# Use the entrypoint to handle cache seeding, then launch the app
+ENTRYPOINT ["/app/entrypoint.sh"]

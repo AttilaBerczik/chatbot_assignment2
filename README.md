@@ -6,24 +6,17 @@ git clone <repo-url>
 cd <repo-directory>
 ```
 
-## 2. Set Up Docker (Rootless)
-- View setup instructions:
-  ```bash
-  cat /home/shared/docker-setup.sh
-  ```
-- Follow the script to configure Docker for your user.
-
-## 3. Start Docker Engine
+## 2. Start Docker Engine (if needed)
 ```bash
 systemctl --user start docker
 ```
 
-## 4. Build the Docker Image
+## 3. Build the Docker Image
 ```bash
 docker build -t llm-chatbot-app .
 ```
 
-## 5. Prepare a host-visible models cache (one time)
+## 4. Prepare a host-visible models cache (one time)
 The app and embeddings both use a single shared cache directory on the host:
 `~/chatbot_assignment2/models_cache`.
 
@@ -32,39 +25,52 @@ Create it and optionally pre-download the models into it using the container:
 mkdir -p ~/chatbot_assignment2/models_cache
 # Optional: pre-populate the cache on the host using the container helper
 docker run --rm \
-  -e MODELS_CACHE_DIR=/cache \
-  -v ~/chatbot_assignment2/models_cache:/cache \
+  -e MODELS_CACHE_DIR=/app/models_cache \
+  -v ~/chatbot_assignment2/models_cache:/app/models_cache \
   llm-chatbot-app python -u download_models.py
 ```
 
 Notes:
-- The image also downloads the models during the build into `/cache` for faster cold starts.
-- When you mount the host cache at `/cache`, it takes precedence so models are read from your host.
-- Important: Do not mount an empty host cache, as it will hide the models baked into the image. Either pre-populate it as above, or omit the `-v ~/...:/cache` mount and the app will use the baked-in `/cache`.
+- The image also downloads the models during the build into an internal cache, and on first start the container copies them into `/app/models_cache` if that directory is empty.
+- When you mount the host cache at `/app/models_cache`, the app will use your host’s copies.
+- Important: Do not mount an empty host cache if you don’t want seeding; either pre-populate it as above, or let the container seed it on first run.
 
-## 6. Run the Ingestion Script
+### Verify the models cache is visible
+On the host:
+```bash
+ls -lah ~/chatbot_assignment2/models_cache
+```
+Inside the container (optional):
+```bash
+docker run --rm \
+  -e MODELS_CACHE_DIR=/app/models_cache \
+  -v ~/chatbot_assignment2/models_cache:/app/models_cache \
+  llm-chatbot-app bash -lc 'ls -lah /app/models_cache'
+```
+
+## 5. Run the Ingestion Script
 Creates the FAISS index for the chatbot.
 ```bash
 docker run --rm --gpus all \
-  -e MODELS_CACHE_DIR=/cache \
+  -e MODELS_CACHE_DIR=/app/models_cache \
   -v $(pwd)/faiss_data:/app/faiss_data \
-  -v ~/chatbot_assignment2/models_cache:/cache \
+  -v ~/chatbot_assignment2/models_cache:/app/models_cache \
   llm-chatbot-app python ingest.py
 ```
 
-## 7. Serve the Chatbot App
+## 6. Serve the Chatbot App
 ```bash
 docker run --gpus all -p 5000:5000 \
-  -e MODELS_CACHE_DIR=/cache \
+  -e MODELS_CACHE_DIR=/app/models_cache \
   -v $(pwd)/faiss_data:/app/faiss_data \
-  -v ~/chatbot_assignment2/models_cache:/cache \
+  -v ~/chatbot_assignment2/models_cache:/app/models_cache \
   llm-chatbot-app
 ```
 
-## 8. Access the App via SSH Tunnel
+## 7. Access the App via SSH Tunnel (if remote)
 - On your local machine, start an SSH tunnel in a new terminal:
   ```bash
-  ssh -L 30123:localhost:5000 username@vs-c1.cs.uit.no
+  ssh -L 30123:localhost:5000 username@your.remote.host
   ```
 - Open your browser and go to:
   ```
