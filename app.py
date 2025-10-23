@@ -1,4 +1,3 @@
-from itertools import chain
 import os
 import torch
 import json
@@ -7,8 +6,8 @@ from typing import Optional
 
 from flask import Flask, render_template, request, jsonify
 
-# LangChain (modern structure)
-from langchain_community.chains import LLMChain
+# LangChain imports
+from langchain.chains import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
