@@ -1,28 +1,18 @@
-from itertools import chain
 import os
+import json
+import time
 import torch
 from flask import Flask, render_template, request, jsonify
+from typing import Optional
 
-# LangChain (modern structure)
-from langchain_classic.chains import LLMChain
+# LangChain Core + Community (modern modular structure)
 from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableSequence  # replaces LLMChain
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
 
 # Hugging Face / Transformers
-from transformers import pipeline, AutoTokenizer
-from itertools import chain
-import os
-import torch
-import json
-import time  # Add missing import
-from flask import Flask, render_template, request, jsonify
-from langchain.chains import ConversationalRetrievalChain
-from langchain_community.vectorstores import FAISS
-from transformers import pipeline, AutoTokenizer
-from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-from typing import Optional
 
 app = Flask(__name__)
 qa_chain = None
