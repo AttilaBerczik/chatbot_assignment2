@@ -5,13 +5,11 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader
-from langchain_text_splitters import SentenceTransformersTokenTextSplitter, TokenTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-import concurrent.futures
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import SentenceTransformersTokenTextSplitter
+from tqdm import tqdm
 
 # Set a polite User-Agent
 os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
@@ -77,12 +75,11 @@ def crawl_and_embed(base_url, link_limit=10):
 
     print("Loading model and preparing splitter...")
 
-    # Use the cache directory you want
+    # Use the shared models cache directory
     MODEL_NAME = "BAAI/bge-large-en-v1.5"
-    CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+    CACHE_DIR = os.path.expanduser(os.environ.get("MODELS_CACHE_DIR", "~/chatbot_assignment2/models_cache"))
 
     print("Splitting text into chunks...")
-
 
     splitter = SentenceTransformersTokenTextSplitter(
         model_name=MODEL_NAME,
@@ -131,9 +128,6 @@ def crawl_and_embed(base_url, link_limit=10):
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local(FAISS_INDEX_PATH)
 
-    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
-    os.makedirs("faiss_data", exist_ok=True)
-    db.save_local(FAISS_INDEX_PATH)
     print("Vector store created and saved to faiss_data/faiss_index")
 
 

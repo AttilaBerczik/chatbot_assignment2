@@ -19,27 +19,20 @@ RUN pip install --upgrade pip && \
 # Try to install flash-attn, but don't fail if it doesn't work
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention installation skipped (optional optimization)"
 
-# Set environment variables for model download
-ENV HF_HUB_DISABLE_PROGRESS_BARS=0 \
-    HF_HUB_TIMEOUT=600 \
-    HF_MODELS_DIR=/app/models \
-    PYTHONUNBUFFERED=1
+# Set environment variables for a unified models cache
+ENV PYTHONUNBUFFERED=1 \
+    MODELS_CACHE_DIR=/cache \
+    HF_HOME=/cache \
+    HUGGINGFACE_HUB_CACHE=/cache
 
-# Create models directory
-RUN mkdir -p /app/models /app/faiss_data
+# Create directories
+RUN mkdir -p /app/faiss_data /cache
 
-# Copy download script
-COPY download_models.py .
-
-# Download models with verbose output
-# Step 10/13: Download models AND clean up the temporary cache in the same layer
-RUN echo "Starting model downloads..." && \
-    python download_models.py && \
-    echo "Model downloads completed" && \
-    rm -rf /root/.cache/huggingface
-
-# Copy the rest of the application files
+# Copy the application files
 COPY . .
+
+# Download models into the shared cache during build
+RUN python -u download_models.py
 
 # Expose the port the Flask app runs on
 EXPOSE 5000

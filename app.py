@@ -46,10 +46,20 @@ def get_device():
 
 device = get_device()
 
-# Model paths (downloaded during Docker build)
-MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
-LLM_LOCAL_DIR = os.path.join(MODELS_DIR, "Qwen/Qwen2.5-7B-Instruct")
-EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+# Centralized models cache directory (host-visible if mounted in Docker)
+MODELS_CACHE_DIR = os.path.expanduser(os.environ.get("MODELS_CACHE_DIR", "~/chatbot_assignment2/models_cache"))
+# Ensure Hugging Face also uses this cache by default
+os.environ.setdefault("HF_HOME", MODELS_CACHE_DIR)
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", MODELS_CACHE_DIR)
+os.environ.setdefault("TRANSFORMERS_CACHE", MODELS_CACHE_DIR)
+
+# Repository names
+LLM_REPO_NAME = "Qwen/Qwen2.5-7B-Instruct"
+EMB_REPO_NAME = "BAAI/bge-large-en-v1.5"
+
+# Local directories for models within the cache
+LLM_LOCAL_DIR = os.path.join(MODELS_CACHE_DIR, "Qwen", "Qwen2.5-7B-Instruct")
+EMB_LOCAL_DIR = os.path.join(MODELS_CACHE_DIR, "bge-large-en-v1.5")
 
 # Load tokenizer from pre-downloaded model with extended context
 tokenizer = AutoTokenizer.from_pretrained(LLM_LOCAL_DIR, trust_remote_code=True)
@@ -84,8 +94,8 @@ def initialize_chain():
             return "FAISS index not found. Please run the ingestion script first."
 
         # Load the embeddings model
-        MODEL_NAME = "BAAI/bge-large-en-v1.5"
-        CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+        MODEL_NAME = EMB_REPO_NAME
+        CACHE_DIR = MODELS_CACHE_DIR
 
         print("Initializing Hugging Face embeddings model...")
         embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME, cache_folder=CACHE_DIR)
@@ -136,7 +146,9 @@ def initialize_chain():
 
         # Apply BetterTransformer optimization for additional 20-30% speedup
         try:
-            from optimum.bettertransformer import BetterTransformer
+            import importlib
+            bt_mod = importlib.import_module("optimum.bettertransformer")
+            BetterTransformer = getattr(bt_mod, "BetterTransformer")
             print("  - Applying BetterTransformer...")
             model = BetterTransformer.transform(model)
             print("  ✓ BetterTransformer applied successfully")
