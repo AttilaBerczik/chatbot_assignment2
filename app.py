@@ -5,7 +5,6 @@ from flask import Flask, render_template, request, jsonify
 
 # LangChain (modern structure)
 from langchain_classic.chains import LLMChain
-from langchain.memory import ConversationBufferMemory
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
