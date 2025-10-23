@@ -5,13 +5,16 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader
-from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import SentenceTransformersTokenTextSplitter, TokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import SentenceTransformersTokenTextSplitter
+from langchain_community.vectorstores import FAISS
+import concurrent.futures
+from tqdm import tqdm
+from transformers import AutoTokenizer
+from langchain_core.documents import Document
 
-# Model paths (same as in app.py - use pre-downloaded models)
-MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
-EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+# Set a polite User-Agent
+os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
 
 def get_internal_links(base_url, limit=10):
     """Extract internal links from any website (same domain only)."""
@@ -80,8 +83,6 @@ def crawl_and_embed(base_url, link_limit=10):
 
     print("Splitting text into chunks...")
 
-    from tqdm import tqdm
-    from langchain.schema import Document
 
     splitter = SentenceTransformersTokenTextSplitter(
         model_name=MODEL_NAME,
@@ -130,16 +131,13 @@ def crawl_and_embed(base_url, link_limit=10):
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local(FAISS_INDEX_PATH)
 
-    print(f"✓ Vector store created and saved to {FAISS_INDEX_PATH}")
-    print(f"✓ Total vectors in index: {db.index.ntotal}")
+    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+    os.makedirs("faiss_data", exist_ok=True)
+    db.save_local(FAISS_INDEX_PATH)
+    print("Vector store created and saved to faiss_data/faiss_index")
 
 
 if __name__ == "__main__":
-    # Example usage - replace with your target URL
-    import sys
-    if len(sys.argv) > 1:
-        base_url = sys.argv[1]
-    else:
-        base_url = input("Enter the base URL to crawl: ")
-
+    # Example: crawl any site — not just Wikipedia
+    base_url = "https://en.wikipedia.org/wiki/Alder_Dam"  # change this to any site
     crawl_and_embed(base_url, link_limit=10)

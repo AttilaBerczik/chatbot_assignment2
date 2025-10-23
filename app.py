@@ -6,12 +6,17 @@ import time
 from typing import Optional
 
 from flask import Flask, render_template, request, jsonify
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFacePipeline
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
+# LangChain (modern structure)
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
+from langchain.chains.llm import LLMChain
+from langchain.memory import ConversationBufferMemory
+from langchain_core.prompts import PromptTemplate
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
+
+# Hugging Face / Transformers
+from transformers import pipeline, AutoTokenizer
 app = Flask(__name__)
 qa_chain = None
 
