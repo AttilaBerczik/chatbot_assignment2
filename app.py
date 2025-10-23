@@ -49,13 +49,28 @@ def get_device():
 
 device = get_device()
 
-# Model paths (downloaded during Docker build)
-MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
-LLM_LOCAL_DIR = os.path.join(MODELS_DIR, "Qwen/Qwen2.5-7B-Instruct")
-EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+# -----------------------------------------------------------------------------
+# Unified Hugging Face cache setup
+# -----------------------------------------------------------------------------
+HF_HOME = os.environ.get("HF_HOME", os.path.expanduser("~/chatbot_assignment2/models_cache"))
+os.environ["HF_HOME"] = HF_HOME  # Ensure Transformers + LangChain use same cache
+os.makedirs(HF_HOME, exist_ok=True)
 
-# Load tokenizer from pre-downloaded model with extended context
-tokenizer = AutoTokenizer.from_pretrained(LLM_LOCAL_DIR, trust_remote_code=True)
+# Model paths (always from HF_HOME)
+LLM_LOCAL_DIR = os.path.join(HF_HOME, "Qwen/Qwen2.5-7B-Instruct")
+EMB_LOCAL_DIR = os.path.join(HF_HOME, "BAAI/bge-large-en-v1.5")
+
+print(f"✅ Using HF cache directory: {HF_HOME}")
+print(f"✅ LLM path: {LLM_LOCAL_DIR}")
+print(f"✅ Embeddings path: {EMB_LOCAL_DIR}")
+
+# Load tokenizer (local only, never from hub)
+tokenizer = AutoTokenizer.from_pretrained(
+    LLM_LOCAL_DIR,
+    trust_remote_code=True,
+    local_files_only=True
+)
+
 MAX_TOKENS = 20000  # Set to 20k tokens for extended context handling
 HISTORY_MAX_TOKENS = 2000  # Reserve tokens for past conversation
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
