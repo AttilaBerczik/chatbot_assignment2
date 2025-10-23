@@ -4,7 +4,6 @@ import torch
 from flask import Flask, render_template, request, jsonify
 
 # LangChain (modern structure)
-from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
 from langchain.chains.llm import LLMChain
 from langchain.memory import ConversationBufferMemory
 from langchain_core.prompts import PromptTemplate

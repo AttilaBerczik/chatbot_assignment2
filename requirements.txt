@@ -2,7 +2,6 @@ langchain
 langchain-community
 langchain-core
 langchain-text-splitters
-langchain-chains
 faiss-cpu
 sentence-transformers
 flask
