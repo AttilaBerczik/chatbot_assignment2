@@ -9,25 +9,25 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install Python dependencies from requirements.txt
+# Copy requirements first
 COPY requirements.txt .
+
+# Install Python dependencies from requirements.txt
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Try to install flash-attn, but don't fail if it doesn't work
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention installation skipped (optional optimization)"
 
-# Create directories for runtime
+# Create directories
 RUN mkdir -p /app/faiss_data /app/models_cache
 
-# --- Model Download Step ---
-# Copy only the download script first to leverage Docker's build cache.
-# This layer will only be re-run if download_models.py or requirements.txt changes.
-COPY download_models.py .
-RUN mkdir -p /image_models_cache
-RUN MODELS_CACHE_DIR=/image_models_cache python -u download_models.py
+# --- Download models in a cacheable layer (only re-runs if the script or requirements change) ---
+COPY download_models.py ./download_models.py
+RUN mkdir -p /image_models_cache && \
+    MODELS_CACHE_DIR=/image_models_cache python -u download_models.py
 
-# Copy the rest of the application files
+# Copy the rest of the application files (won't invalidate the model layer)
 COPY . .
 
 # Set environment variables for a unified runtime models cache under /app/models_cache
@@ -37,8 +37,7 @@ ENV PYTHONUNBUFFERED=1 \
     HUGGINGFACE_HUB_CACHE=/app/models_cache \
     TRANSFORMERS_CACHE=/app/models_cache
 
-# Add a simple entrypoint to seed the runtime cache from the baked cache if it's empty
-COPY entrypoint.sh /app/entrypoint.sh
+# Ensure entrypoint is executable
 RUN chmod +x /app/entrypoint.sh
 
 # Expose the port the Flask app runs on
