@@ -1,6 +1,11 @@
-# Use official Python image as base
+# ================================
+# 🐍 Base Image
+# ================================
 FROM python:3.10
 
+# ================================
+# 🧩 System Dependencies
+# ================================
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
@@ -8,25 +13,46 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# ================================
+# 📦 Python Dependencies
+# ================================
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Optional but useful performance extras
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention install skipped (optional)"
 RUN pip install --upgrade --no-cache-dir langchain langchain-core langchain-community langchain-huggingface
 
-
-# Set model cache path (shared with host)
+# ================================
+# ⚙️ Environment Variables
+# ================================
 ENV HF_HOME=/root/chatbot_assignment2/models_cache \
     HF_HUB_DISABLE_PROGRESS_BARS=0 \
     HF_HUB_TIMEOUT=600 \
     PYTHONUNBUFFERED=1
 
-# Create directories
+# Create required directories
 RUN mkdir -p /root/chatbot_assignment2/models_cache /app/faiss_data
 
-# Copy app
+# ================================
+# 📥 Pre-download Models
+# ================================
+# These will be cached inside the image in /root/chatbot_assignment2/models_cache
+# You can remove or modify these lines if you want smaller images.
+RUN python3 -m huggingface_hub download Qwen/Qwen2.5-7B-Instruct \
+    --local-dir /root/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct && \
+    python3 -m huggingface_hub download BAAI/bge-large-en-v1.5 \
+    --local-dir /root/chatbot_assignment2/models_cache/bge-large-en-v1.5
+
+# ================================
+# 🧠 Copy Application
+# ================================
 COPY . .
 
 EXPOSE 5000
+
+# ================================
+# 🚀 Launch App
+# ================================
 CMD ["python", "-u", "app.py"]
