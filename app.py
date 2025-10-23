@@ -8,17 +8,17 @@ from typing import Optional
 from flask import Flask, render_template, request, jsonify
 
 # LangChain (modern structure)
-from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
-from langchain.chains.llm import LLMChain
-from langchain.memory import ConversationBufferMemory
+from langchain_community.chains import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
 
 # Hugging Face / Transformers
-from transformers import pipeline, AutoTokenizer
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+
 app = Flask(__name__)
 qa_chain = None
+
 
 # GPU Configuration
 def get_device():
@@ -32,7 +32,7 @@ def get_device():
         best_gpu = 0
         for i in range(num_gpus):
             free_memory = torch.cuda.get_device_properties(i).total_memory - torch.cuda.memory_allocated(i)
-            print(f"GPU {i}: {torch.cuda.get_device_name(i)} - Free memory: {free_memory / 1024**3:.2f} GB")
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)} - Free memory: {free_memory / 1024 ** 3:.2f} GB")
             if free_memory > max_free_memory:
                 max_free_memory = free_memory
                 best_gpu = i
@@ -43,6 +43,7 @@ def get_device():
     else:
         print("No GPU available, using CPU")
         return "cpu"
+
 
 device = get_device()
 
@@ -59,6 +60,7 @@ FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 
 # store conversation history in memory
 conversation_history = []
+
 
 class TruncatingHuggingFacePipeline(HuggingFacePipeline):
     def __init__(self, pipeline, tokenizer, max_tokens):
@@ -82,13 +84,12 @@ def initialize_chain():
         if not os.path.exists(FAISS_INDEX_PATH):
             return "FAISS index not found. Please run the ingestion script first."
 
-
         # Load the embeddings model
         MODEL_NAME = "BAAI/bge-large-en-v1.5"
         CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
 
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME,cache_folder=CACHE_DIR)
+        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME, cache_folder=CACHE_DIR)
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
@@ -106,7 +107,7 @@ def initialize_chain():
 
         # Initialize Hugging Face LLM pipeline with GPU optimization
         print("Initializing Hugging Face LLM pipeline...")
-        
+
         # Load model with optimizations and extended context support
         print(f"Loading model from {LLM_LOCAL_DIR} with 20k context support...")
         print("⚡ Applying speed optimizations:")
@@ -165,8 +166,8 @@ def initialize_chain():
         print(f"Context length configured for: {MAX_TOKENS} tokens (~15k-20k words)")
         if device.startswith("cuda"):
             gpu_id = int(device.split(":")[-1])
-            print(f"GPU memory allocated: {torch.cuda.memory_allocated(gpu_id) / 1024**3:.2f} GB")
-            print(f"GPU memory reserved: {torch.cuda.memory_reserved(gpu_id) / 1024**3:.2f} GB")
+            print(f"GPU memory allocated: {torch.cuda.memory_allocated(gpu_id) / 1024 ** 3:.2f} GB")
+            print(f"GPU memory reserved: {torch.cuda.memory_reserved(gpu_id) / 1024 ** 3:.2f} GB")
         # Initialize conversation history with dynamic welcome prompt
         try:
             metadata_path = os.path.join("faiss_data", "metadata.json")
@@ -192,6 +193,7 @@ def initialize_chain():
 def index():
     """Renders the main chat interface."""
     return render_template("index.html")
+
 
 @app.route("/topic", methods=["GET"])
 def get_topic():
@@ -220,13 +222,14 @@ def get_topic():
             "url_count": 0
         })
 
+
 @app.route("/query", methods=["POST"])
 def query():
     try:
         global db, llm, conversation_history
 
         start_time = time.time()  # Fix: Define start_time at the beginning
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("Entered /query endpoint")
         user_query = request.json.get("query")
         if not user_query:
@@ -237,7 +240,9 @@ def query():
 
         # build history string and truncate to last HISTORY_MAX_TOKENS tokens
         retrieval_start = time.time()
-        history_text = "\n".join([f"User: {msg['content']}" if msg['role']=="user" else f"Assistant: {msg['content']}" for msg in conversation_history])
+        history_text = "\n".join(
+            [f"User: {msg['content']}" if msg['role'] == "user" else f"Assistant: {msg['content']}" for msg in
+             conversation_history])
         history_tokens = tokenizer.encode(history_text)
         if len(history_tokens) > HISTORY_MAX_TOKENS:
             history_tokens = history_tokens[-HISTORY_MAX_TOKENS:]
@@ -280,7 +285,8 @@ Answer:"""
         chain = LLMChain(llm=llm, prompt=prompt)
 
         generation_start = time.time()
-        print(f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
+        print(
+            f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
         answer = chain.run({"history": history_text, "context": context, "user_query": user_query})
         generation_time = time.time() - generation_start
 
@@ -289,7 +295,7 @@ Answer:"""
         print(f"⏱️  Generation time: {generation_time:.2f}s")
         print(f"⏱️  Total time: {total_time:.2f}s")
         print(f"📝 Response length: {len(answer)} chars")
-        print("="*80 + "\n")
+        print("=" * 80 + "\n")
 
         # append assistant response to history
         conversation_history.append({"role": "assistant", "content": answer})
