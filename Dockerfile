@@ -9,25 +9,26 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy requirements first
-COPY requirements.txt .
-
 # Install Python dependencies from requirements.txt
+COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Try to install flash-attn, but don't fail if it doesn't work
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention installation skipped (optional optimization)"
 
-# Create directories
-RUN mkdir -p /app/faiss_data /app/models_cache /image_models_cache
+# Create directories for runtime
+RUN mkdir -p /app/faiss_data /app/models_cache
 
-# Copy the application files
-COPY . .
-
-# Download models into an image-baked cache during build
-# We'll seed the runtime cache from this on the first container start
+# --- Model Download Step ---
+# Copy only the download script first to leverage Docker's build cache.
+# This layer will only be re-run if download_models.py or requirements.txt changes.
+COPY download_models.py .
+RUN mkdir -p /image_models_cache
 RUN MODELS_CACHE_DIR=/image_models_cache python -u download_models.py
+
+# Copy the rest of the application files
+COPY . .
 
 # Set environment variables for a unified runtime models cache under /app/models_cache
 ENV PYTHONUNBUFFERED=1 \
