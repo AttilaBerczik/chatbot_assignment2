@@ -17,9 +17,47 @@ from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 app = Flask(__name__)
 qa_chain = None
 
+import os
+import sys
+from transformers import AutoTokenizer
+
+# -----------------------------------------------------------------------------
+# Hugging Face Cache + Local Model Setup
+# -----------------------------------------------------------------------------
 HF_HOME = os.environ.get("HF_HOME", os.path.expanduser("~/chatbot_assignment2/models_cache"))
-os.environ["HF_HOME"] = HF_HOME  # enforce for Transformers + LangChain
+os.environ["HF_HOME"] = HF_HOME  # Make sure Transformers + LangChain use same cache
 os.makedirs(HF_HOME, exist_ok=True)
+
+# Define model directories (directly inside models_cache)
+LLM_LOCAL_DIR = os.path.join(HF_HOME, "Qwen2.5-7B-Instruct")
+EMB_LOCAL_DIR = os.path.join(HF_HOME, "bge-large-en-v1.5")
+
+print(f"✅ Using HF cache directory: {HF_HOME}")
+print(f"✅ LLM path: {LLM_LOCAL_DIR}")
+print(f"✅ Embeddings path: {EMB_LOCAL_DIR}")
+
+# -----------------------------------------------------------------------------
+# Check that the local model exists
+# -----------------------------------------------------------------------------
+if not os.path.exists(LLM_LOCAL_DIR):
+    print("❌ Qwen2.5-7B-Instruct model not found in cache!")
+    print("👉 Run this on your host machine before launching Docker:")
+    print("   python3 -m huggingface_hub download Qwen/Qwen2.5-7B-Instruct "
+          f"--local-dir {os.path.expanduser('~/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct')}")
+    print("Then move or rename that folder to:")
+    print(f"   {os.path.expanduser('~/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct')} → {os.path.expanduser('~/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct')}")
+    sys.exit(1)
+
+# -----------------------------------------------------------------------------
+# Load tokenizer locally (no hub access)
+# -----------------------------------------------------------------------------
+tokenizer = AutoTokenizer.from_pretrained(
+    LLM_LOCAL_DIR,
+    trust_remote_code=True,
+    local_files_only=True
+)
+print("✅ Tokenizer loaded successfully from local cache.")
+
 
 
 # GPU Configuration
@@ -49,27 +87,7 @@ def get_device():
 
 device = get_device()
 
-# -----------------------------------------------------------------------------
-# Unified Hugging Face cache setup
-# -----------------------------------------------------------------------------
-HF_HOME = os.environ.get("HF_HOME", os.path.expanduser("~/chatbot_assignment2/models_cache"))
-os.environ["HF_HOME"] = HF_HOME  # Ensure Transformers + LangChain use same cache
-os.makedirs(HF_HOME, exist_ok=True)
 
-# Model paths (always from HF_HOME)
-LLM_LOCAL_DIR = os.path.join(HF_HOME, "Qwen/Qwen2.5-7B-Instruct")
-EMB_LOCAL_DIR = os.path.join(HF_HOME, "BAAI/bge-large-en-v1.5")
-
-print(f"✅ Using HF cache directory: {HF_HOME}")
-print(f"✅ LLM path: {LLM_LOCAL_DIR}")
-print(f"✅ Embeddings path: {EMB_LOCAL_DIR}")
-
-# Load tokenizer (local only, never from hub)
-tokenizer = AutoTokenizer.from_pretrained(
-    LLM_LOCAL_DIR,
-    trust_remote_code=True,
-    local_files_only=True
-)
 
 MAX_TOKENS = 20000  # Set to 20k tokens for extended context handling
 HISTORY_MAX_TOKENS = 2000  # Reserve tokens for past conversation
