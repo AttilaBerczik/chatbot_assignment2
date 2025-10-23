@@ -20,9 +20,10 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Optional but useful performance extras
+# Optional: performance extras
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention install skipped (optional)"
 RUN pip install --upgrade --no-cache-dir langchain langchain-core langchain-community langchain-huggingface
+RUN pip install --no-cache-dir huggingface_hub
 
 # ================================
 # ⚙️ Environment Variables
@@ -38,11 +39,10 @@ RUN mkdir -p /root/chatbot_assignment2/models_cache /app/faiss_data
 # ================================
 # 📥 Pre-download Models
 # ================================
-# These will be cached inside the image in /root/chatbot_assignment2/models_cache
-# You can remove or modify these lines if you want smaller images.
-RUN python3 -m huggingface_hub download Qwen/Qwen2.5-7B-Instruct \
+# Use huggingface-cli instead of python -m
+RUN huggingface-cli download Qwen/Qwen2.5-7B-Instruct \
     --local-dir /root/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct && \
-    python3 -m huggingface_hub download BAAI/bge-large-en-v1.5 \
+    huggingface-cli download BAAI/bge-large-en-v1.5 \
     --local-dir /root/chatbot_assignment2/models_cache/bge-large-en-v1.5
 
 # ================================
