@@ -2,15 +2,17 @@ from itertools import chain
 import os
 import torch
 from flask import Flask, render_template, request, jsonify
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-from langchain_community.vectorstores import FAISS
-from transformers import pipeline, AutoTokenizer
-from langchain_huggingface import HuggingFacePipeline
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 
+# LangChain (modern structure)
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
+from langchain.chains.llm import LLMChain
+from langchain.memory import ConversationBufferMemory
+from langchain_core.prompts import PromptTemplate
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
+
+# Hugging Face / Transformers
+from transformers import pipeline, AutoTokenizer
 app = Flask(__name__)
 qa_chain = None
 tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
