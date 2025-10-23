@@ -7,7 +7,7 @@ from typing import Optional
 from flask import Flask, render_template, request, jsonify
 
 # LangChain imports
-from langchain.chains import LLMChain
+from langchain_classics.chains import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
