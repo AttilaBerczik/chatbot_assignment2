@@ -13,6 +13,8 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 RUN pip install --no-cache-dir flash-attn 2>&1 || echo "⚠️ Flash Attention install skipped (optional)"
+RUN pip install --upgrade --no-cache-dir langchain langchain-core langchain-community langchain-huggingface
+
 
 # Set model cache path (shared with host)
 ENV HF_HOME=/root/chatbot_assignment2/models_cache \
