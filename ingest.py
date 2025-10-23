@@ -3,8 +3,7 @@ import requests
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader
-from langchain_text_splitters import SentenceTransformersTokenTextSplitter
-from langchain.text_splitter import TokenTextSplitter
+from langchain_text_splitters import SentenceTransformersTokenTextSplitter, TokenTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 import concurrent.futures
