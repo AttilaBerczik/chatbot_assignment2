@@ -56,37 +56,44 @@ def initialize_chain():
     """Initializes the conversational retrieval chain."""
     global qa_chain, db, llm
     try:
-        # Check if the FAISS index exists
+        # Check if FAISS index exists
         if not os.path.exists(FAISS_INDEX_PATH):
             return "FAISS index not found. Please run the ingestion script first."
 
-
-        # Load the embeddings model
-        MODEL_NAME = "BAAI/bge-large-en-v1.5"
+        # ---- Cache setup ----
         CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+        os.environ["HF_HOME"] = CACHE_DIR  # ensure transformers uses this cache
 
+        # ---- Embeddings model ----
+        MODEL_NAME = "BAAI/bge-large-en-v1.5"
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME,cache_folder=CACHE_DIR)
+        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME, cache_folder=CACHE_DIR)
 
-        # Load the vector store from disk
+        # ---- Vector store ----
         print("Loading vector store from disk...")
         db = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
-        # Initialize Hugging Face LLM pipeline
+        # ---- Language model ----
         print("Initializing Hugging Face LLM pipeline...")
+        llm_model_name = "google/flan-t5-base"
 
-        # Load local text generation model
-        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+        generator = pipeline(
+            "text2text-generation",
+            model=llm_model_name,
+            model_kwargs={"torch_dtype": torch.float16},
+            device=0 if torch.cuda.is_available() else -1,
+            cache_dir=CACHE_DIR,  # <--- store and reuse model here
+        )
+
+        tokenizer = AutoTokenizer.from_pretrained(llm_model_name, cache_dir=CACHE_DIR)
+
         llm = TruncatingHuggingFacePipeline(generator, tokenizer, MAX_TOKENS)
 
-        print("Chatbot chain initialized successfully.")
-        print("DB initialized:", db)
-        print("LLM initialized:", llm)
-        return None  # No error
+        print("✅ Chatbot chain initialized successfully.")
+        return None
     except Exception as e:
         print(f"Error during chain initialization: {e}")
         return f"Error during initialization: {e}"
-
 
 @app.route("/")
 def index():
