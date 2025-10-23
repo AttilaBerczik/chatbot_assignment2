@@ -17,6 +17,10 @@ from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 app = Flask(__name__)
 qa_chain = None
 
+HF_HOME = os.environ.get("HF_HOME", os.path.expanduser("~/chatbot_assignment2/models_cache"))
+os.environ["HF_HOME"] = HF_HOME  # enforce for Transformers + LangChain
+os.makedirs(HF_HOME, exist_ok=True)
+
 
 # GPU Configuration
 def get_device():
@@ -84,7 +88,7 @@ def initialize_chain():
 
         # Load the embeddings model
         MODEL_NAME = "BAAI/bge-large-en-v1.5"
-        CACHE_DIR = os.path.expanduser("~/chatbot_assignment2/models_cache")
+        CACHE_DIR = HF_HOME
 
         print("Initializing Hugging Face embeddings model...")
         embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME, cache_folder=CACHE_DIR)
