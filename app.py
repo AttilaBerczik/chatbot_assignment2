@@ -353,12 +353,12 @@ Question: {user_query}
 Answer:"""
         prompt = PromptTemplate.from_template(template)
 
-        chain = LLMChain(llm=llm, prompt=prompt)
+        chain = prompt | llm
 
         generation_start = time.time()
         print(
             f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
-        answer = chain.run({"history": history_text, "context": context, "user_query": user_query})
+        answer = chain.invoke({"history": history_text, "context": context, "user_query": user_query})
         generation_time = time.time() - generation_start
 
         total_time = time.time() - start_time
