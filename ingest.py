@@ -9,9 +9,8 @@ from langchain_community.vectorstores import FAISS
 import concurrent.futures
 from tqdm import tqdm
 
-# Model paths (same as in app.py - use pre-downloaded models)
-MODELS_DIR = os.environ.get("HF_MODELS_DIR", os.path.join(os.getcwd(), "models"))
-EMB_LOCAL_DIR = os.path.join(MODELS_DIR, "bge-large-en-v1.5")
+# Set a polite User-Agent
+os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
 
 def get_internal_links(base_url, limit=10):
     """Extract internal links from any website (same domain only)."""
@@ -126,16 +125,13 @@ def crawl_and_embed(base_url, link_limit=10):
     print("Build and save FAISS index...")
     db = FAISS.from_documents(texts, embeddings)
 
-# 5️⃣ Convert text into embeddings using the same model as app.py
-print(f"Loading embeddings model from {EMB_LOCAL_DIR}...")
-embeddings = HuggingFaceEmbeddings(model_name=EMB_LOCAL_DIR, model_kwargs={'device': 'cpu'})
+    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+    os.makedirs("faiss_data", exist_ok=True)
+    db.save_local(FAISS_INDEX_PATH)
+    print("Vector store created and saved to faiss_data/faiss_index")
 
-# Create a FAISS vector store from the documents
-db = FAISS.from_documents(texts, embeddings)
 
-# Save the vector store to a local file
-FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
-os.makedirs("faiss_data", exist_ok=True)
-db.save_local(FAISS_INDEX_PATH)
-
-print("Vector store created and saved to faiss_data/faiss_index.")
+if __name__ == "__main__":
+    # Example: crawl any site — not just Wikipedia
+    base_url = "https://en.wikipedia.org/wiki/Alder_Dam"  # change this to any site
+    crawl_and_embed(base_url, link_limit=10)
