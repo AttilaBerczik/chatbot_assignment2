@@ -1,8 +1,6 @@
-import concurrent.futures
 import os
-from urllib.parse import urljoin, urlparse
-
 import requests
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import SentenceTransformersTokenTextSplitter, TokenTextSplitter
@@ -123,13 +121,8 @@ def crawl_and_embed(base_url, link_limit=10):
     )
 
     # 5️⃣ Build and save FAISS index
-    print("Building FAISS index from documents...")
-    db = FAISS.from_documents(safe_texts, embeddings)
-
-    # Save the vector store to a local file
-    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
-    os.makedirs("faiss_data", exist_ok=True)
-    db.save_local(FAISS_INDEX_PATH)
+    print("Build and save FAISS index...")
+    db = FAISS.from_documents(texts, embeddings)
 
     FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
     os.makedirs("faiss_data", exist_ok=True)
