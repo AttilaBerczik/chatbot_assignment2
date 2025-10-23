@@ -8,6 +8,13 @@ services:
       - .:/app
     environment:
       - USER_AGENT=Group 2 (+https://uit.no)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     command: python ingest.py
 
   llm-chatbot-app:
@@ -21,4 +28,11 @@ services:
       - "5000:5000"
     depends_on:
       - ingest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     command: python app.py
