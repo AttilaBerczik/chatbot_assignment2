@@ -119,41 +119,16 @@ def initialize_chain():
 
         # Load model with optimizations and extended context support
         print(f"Loading model from {LLM_LOCAL_DIR} with 20k context support...")
-        print("⚡ Applying speed optimizations:")
-        print("  - Multi-GPU tensor parallelism (8x A100)")
-        print("  - FP16 precision for 2x speed")
-        print("  - KV-cache enabled")
 
-        # Try to use Flash Attention 2 if available
         model_kwargs = {
             "trust_remote_code": True,
-            "dtype": torch.float16,  # Always use FP16 on GPU for 2x speed
-            "device_map": "auto",  # Automatically spread across all 8 GPUs
+            "dtype": torch.float16,  # FP16 precision on GPU
+            "device_map": "auto",  # Automatically spread across GPUs
             "low_cpu_mem_usage": True,
-            "use_cache": True,  # Enable KV-cache for faster generation
+            "use_cache": True,  # Enable KV-cache
         }
 
-        # Try Flash Attention 2 - provides 3-4x speedup if available
-        try:
-            model_kwargs["attn_implementation"] = "flash_attention_2"
-            model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
-            print("  ✓ Flash Attention 2 enabled (3-4x faster attention)")
-        except Exception as e:
-            print(f"  ⚠ Flash Attention 2 not available, using default attention: {e}")
-            # Fall back to default attention
-            model_kwargs.pop("attn_implementation", None)
-            model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
-
-        # Apply BetterTransformer optimization for additional 20-30% speedup
-        try:
-            import importlib
-            bt_mod = importlib.import_module("optimum.bettertransformer")
-            BetterTransformer = getattr(bt_mod, "BetterTransformer")
-            print("  - Applying BetterTransformer...")
-            model = BetterTransformer.transform(model)
-            print("  ✓ BetterTransformer applied successfully")
-        except Exception as e:
-            print(f"  ⚠ BetterTransformer not available: {e}")
+        model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
 
         # Create pipeline - don't specify device when using device_map="auto"
         generator = pipeline(
