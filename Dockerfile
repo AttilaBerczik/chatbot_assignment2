@@ -14,7 +14,7 @@ COPY requirements.txt .
 
 # Install Python dependencies from requirements.txt
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install -r requirements.txt
 
 # Create directories
 RUN mkdir -p /app/faiss_data /app/models_cache
