@@ -224,7 +224,7 @@ def initialize_chain():
             temperature=0.7,
             top_p=0.9,
             do_sample=True,
-            return_full_text=True,
+            return_full_text=False,
         )
 
         # Wrap the pipeline
