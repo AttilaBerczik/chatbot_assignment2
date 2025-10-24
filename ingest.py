@@ -122,11 +122,22 @@ def crawl_and_embed(base_url, link_limit=10):
 
     # 5️⃣ Build and save FAISS index
     print("Build and save FAISS index...")
-    db = FAISS.from_documents(texts, embeddings)
+    db = FAISS.from_documents(safe_texts, embeddings)
+
+
 
     FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local(FAISS_INDEX_PATH)
+
+    metadata = {
+        "base_topic": base_url.split("/")[-1].replace("_", " "),
+        "domain": urlparse(base_url).netloc,
+        "all_urls": urls
+    }
+    with open(os.path.join("faiss_data", "metadata.json"), "w") as f:
+        json.dump(metadata, f, indent=2)
+
     print("Vector store created and saved to faiss_data/faiss_index")
 
 

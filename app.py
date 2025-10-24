@@ -128,7 +128,7 @@ device = get_device()
 
 
 
-MAX_TOKENS = 20000  # Set to 20k tokens for extended context handling
+MAX_TOKENS = 4000  # Set to 20k tokens for extended context handling
 HISTORY_MAX_TOKENS = 2000  # Reserve tokens for past conversation
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
 
@@ -224,7 +224,7 @@ def initialize_chain():
             temperature=0.7,
             top_p=0.9,
             do_sample=True,
-            return_full_text=False,
+            return_full_text=True,
         )
 
         # Wrap the pipeline
@@ -320,7 +320,9 @@ def query():
             history_text = tokenizer.decode(history_tokens)
 
         # Retrieve context documents
-        retrieved_docs = db.similarity_search(user_query, k=10)
+        retrieved_docs = db.similarity_search(user_query, k=11)
+        for i, d in enumerate(retrieved_docs[:3]):
+            print(f"[DOC {i}] {d.page_content[:300]}")
         context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
         # truncate context if needed
