@@ -7,7 +7,6 @@ from typing import Optional
 from flask import Flask, render_template, request, jsonify
 
 # LangChain imports
-from langchain_classic.chains import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
@@ -268,12 +267,13 @@ Question: {user_query}
 Answer:"""
         prompt = PromptTemplate.from_template(template)
 
-        chain = LLMChain(llm=llm, prompt=prompt)
+        # Use RunnableSequence (prompt | llm) instead of deprecated LLMChain
+        chain = prompt | llm
 
         generation_start = time.time()
         print(
             f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
-        answer = chain.run({"history": history_text, "context": context, "user_query": user_query})
+        answer = chain.invoke({"history": history_text, "context": context, "user_query": user_query})
         generation_time = time.time() - generation_start
 
         total_time = time.time() - start_time

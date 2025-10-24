@@ -14,4 +14,3 @@ accelerate
 huggingface_hub
 tqdm
 optimum
-langchain-classic
