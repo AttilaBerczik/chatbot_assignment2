@@ -325,5 +325,5 @@ if __name__ == "__main__":
     if init_error:
         print(f"Failed to start Flask app due to initialization error: {init_error}")
     else:
-        app.run(host="0.0.0.0", port=5002, debug=True)
+        app.run(host="0.0.0.0", port=5002, debug=False)
 
