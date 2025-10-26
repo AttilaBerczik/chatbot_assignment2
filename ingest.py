@@ -1,5 +1,7 @@
 import concurrent.futures
 import os
+import json
+import time
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -128,6 +130,27 @@ def crawl_and_embed(base_url, link_limit=10):
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local(FAISS_INDEX_PATH)
 
+    # 6️⃣ Save metadata about the ingested content
+    parsed_url = urlparse(base_url)
+    domain = parsed_url.netloc
+    # Extract topic from URL path (last segment)
+    path_segments = [s for s in parsed_url.path.split('/') if s]
+    topic = path_segments[-1].replace('_', ' ').replace('-', ' ') if path_segments else domain
+
+    metadata = {
+        "base_url": base_url,
+        "base_topic": topic,
+        "domain": domain,
+        "all_urls": urls,
+        "total_documents": len(safe_texts),
+        "ingestion_timestamp": str(time.time())
+    }
+
+    metadata_path = os.path.join("faiss_data", "metadata.json")
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"✅ Metadata saved. Topic: {topic}")
     print("Vector store created and saved to faiss_data/faiss_index")
 
 

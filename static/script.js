@@ -154,7 +154,33 @@ function loadTheme() {
     }
 }
 
+// Initialize on page load
+loadTheme();
+loadWelcomeTopic();
+
 themeToggle.addEventListener('click', toggleTheme);
+
+// Load dynamic topic for welcome message
+async function loadWelcomeTopic() {
+    try {
+        const response = await fetch('/topic');
+        if (response.ok) {
+            const data = await response.json();
+            const topic = data.topic || "the ingested content";
+            const welcomeMessage = document.getElementById('welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.textContent = `Hello! I'm your Docker RAG chatbot. Ask me anything about ${topic}.`;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading topic:', error);
+        // Fallback to generic message
+        const welcomeMessage = document.getElementById('welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.textContent = "Hello! I'm your Docker RAG chatbot. Ask me anything!";
+        }
+    }
+}
 
 // Format time
 function getTimeString() {
