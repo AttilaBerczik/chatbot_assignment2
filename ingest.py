@@ -78,8 +78,8 @@ def crawl_and_embed(base_url, link_limit=10):
     print("Loading model and preparing splitter...")
 
     # Use the shared models cache directory
-    MODEL_NAME = "BAAI/bge-large-en-v1.5"
-    CACHE_DIR = os.path.expanduser(os.environ.get("MODELS_CACHE_DIR", "~/chatbot_assignment2/models_cache"))
+    CACHE_DIR = "/root/chatbot_assignment2/models_cache"
+    MODEL_NAME = os.path.join(CACHE_DIR, "BAAI__bge-large-en-v1.5")
 
     print("Splitting text into chunks...")
 
