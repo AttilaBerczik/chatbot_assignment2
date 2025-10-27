@@ -1,21 +1,139 @@
-from itertools import chain
 import os
+import json
+import time
 import torch
 from flask import Flask, render_template, request, jsonify
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
+from typing import Optional
+
+# LangChain Core + Community (modern modular structure)
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableSequence  # replaces LLMChain
 from langchain_community.vectorstores import FAISS
-from transformers import pipeline, AutoTokenizer
-from langchain_huggingface import HuggingFacePipeline
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
+
+# Hugging Face / Transformers
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 app = Flask(__name__)
 qa_chain = None
-tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-MAX_TOKENS = 1024
+
+import os
+import sys
+from transformers import AutoTokenizer
+
+import os
+import subprocess
+from pathlib import Path
+
+# --- Auto-download models if missing ---
+HF_CACHE = os.getenv("HF_HOME", "/root/chatbot_assignment2/models_cache")
+LLM_DIR = Path(HF_CACHE) / "Qwen2.5-7B-Instruct"
+EMBEDDINGS_DIR = Path(HF_CACHE) / "bge-large-en-v1.5"
+
+def ensure_model(model_name: str, target_dir: Path):
+    """Ensure model is present locally; download if missing."""
+    if not target_dir.exists() or not any(target_dir.iterdir()):
+        print(f"⚠️  Model '{model_name}' not found locally. Downloading to {target_dir} ...")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            subprocess.run(
+                [
+                    "huggingface-cli", "download", model_name,
+                    "--local-dir", str(target_dir),
+                    "--local-dir-use-symlinks", "False"
+                ],
+                check=True
+            )
+            print(f"✅ Download complete for {model_name}")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to download {model_name}: {e}")
+            exit(1)
+    else:
+        print(f"✅ Found {model_name} in cache.")
+
+# Check both models
+ensure_model("Qwen/Qwen2.5-7B-Instruct", LLM_DIR)
+ensure_model("BAAI/bge-large-en-v1.5", EMBEDDINGS_DIR)
+
+print(f"✅ Using HF cache directory: {HF_CACHE}")
+print(f"✅ LLM path: {LLM_DIR}")
+print(f"✅ Embeddings path: {EMBEDDINGS_DIR}")
+
+
+# -----------------------------------------------------------------------------
+# Hugging Face Cache + Local Model Setup
+# -----------------------------------------------------------------------------
+HF_HOME = os.environ.get("HF_HOME", os.path.expanduser("~/chatbot_assignment2/models_cache"))
+os.environ["HF_HOME"] = HF_HOME  # Make sure Transformers + LangChain use same cache
+os.makedirs(HF_HOME, exist_ok=True)
+
+# Define model directories (directly inside models_cache)
+LLM_LOCAL_DIR = os.path.join(HF_HOME, "Qwen2.5-7B-Instruct")
+EMB_LOCAL_DIR = os.path.join(HF_HOME, "bge-large-en-v1.5")
+
+print(f"✅ Using HF cache directory: {HF_HOME}")
+print(f"✅ LLM path: {LLM_LOCAL_DIR}")
+print(f"✅ Embeddings path: {EMB_LOCAL_DIR}")
+
+# -----------------------------------------------------------------------------
+# Check that the local model exists
+# -----------------------------------------------------------------------------
+if not os.path.exists(LLM_LOCAL_DIR):
+    print("❌ Qwen2.5-7B-Instruct model not found in cache!")
+    print("👉 Run this on your host machine before launching Docker:")
+    print("   python3 -m huggingface_hub download Qwen/Qwen2.5-7B-Instruct "
+          f"--local-dir {os.path.expanduser('~/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct')}")
+    print("Then move or rename that folder to:")
+    print(f"   {os.path.expanduser('~/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct')} → {os.path.expanduser('~/chatbot_assignment2/models_cache/Qwen2.5-7B-Instruct')}")
+    sys.exit(1)
+
+# -----------------------------------------------------------------------------
+# Load tokenizer locally (no hub access)
+# -----------------------------------------------------------------------------
+tokenizer = AutoTokenizer.from_pretrained(
+    LLM_LOCAL_DIR,
+    trust_remote_code=True,
+    local_files_only=True
+)
+print("✅ Tokenizer loaded successfully from local cache.")
+
+
+
+# GPU Configuration
+def get_device():
+    """Detect and configure the best available device."""
+    if torch.cuda.is_available():
+        # Find GPU with most free memory
+        num_gpus = torch.cuda.device_count()
+        print(f"Found {num_gpus} GPU(s)")
+
+        max_free_memory = 0
+        best_gpu = 0
+        for i in range(num_gpus):
+            free_memory = torch.cuda.get_device_properties(i).total_memory - torch.cuda.memory_allocated(i)
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)} - Free memory: {free_memory / 1024 ** 3:.2f} GB")
+            if free_memory > max_free_memory:
+                max_free_memory = free_memory
+                best_gpu = i
+
+        device = f"cuda:{best_gpu}"
+        print(f"Selected device: {device}")
+        return device
+    else:
+        print("No GPU available, using CPU")
+        return "cpu"
+
+
+device = get_device()
+
+
+
+MAX_TOKENS = 4000  # Set to 20k tokens for extended context handling
+HISTORY_MAX_TOKENS = 2000  # Reserve tokens for past conversation
 FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+
+# store conversation history in memory
+conversation_history = []
 
 
 class TruncatingHuggingFacePipeline(HuggingFacePipeline):
@@ -24,31 +142,12 @@ class TruncatingHuggingFacePipeline(HuggingFacePipeline):
         self._tokenizer = tokenizer
         self._max_tokens = max_tokens
 
-    def __call__(self, prompt, stop=None):
-        # Handle batch, dict, or string
-        if isinstance(prompt, list):
-            truncated_list = []
-            for item in prompt:
-                if isinstance(item, dict):
-                    prompt_text = item.get("text") or item.get("inputs") or item.get("prompt") or ""
-                else:
-                    prompt_text = item
-                input_ids = self._tokenizer.encode(prompt_text, truncation=True, max_length=self._max_tokens)
-                truncated_prompt = self._tokenizer.decode(input_ids)
-                truncated_list.append(truncated_prompt)
-            return super().__call__(truncated_list, stop=stop)
-        elif isinstance(prompt, dict):
-            prompt_text = prompt.get("text") or prompt.get("inputs") or prompt.get("prompt") or ""
-            input_ids = self._tokenizer.encode(prompt_text, truncation=True, max_length=self._max_tokens)
-            truncated_prompt = self._tokenizer.decode(input_ids)
-            return super().__call__(truncated_prompt, stop=stop)
-        else:
-            input_ids = self._tokenizer.encode(prompt, truncation=True, max_length=self._max_tokens)
-            truncated_prompt = self._tokenizer.decode(input_ids)
-            return super().__call__(truncated_prompt, stop=stop)
-
-    def _call(self, prompt, stop=None):
-        return self.__call__(prompt, stop=stop)
+    def _call(self, prompt: str, stop: Optional[list] = None) -> str:
+        # Truncate prompt to max_tokens
+        input_ids = self._tokenizer.encode(prompt, truncation=True, max_length=self._max_tokens)
+        truncated_prompt = self._tokenizer.decode(input_ids)
+        # Delegate to base LLM _call method
+        return super()._call(truncated_prompt, stop=stop)
 
 
 def initialize_chain():
@@ -60,23 +159,101 @@ def initialize_chain():
             return "FAISS index not found. Please run the ingestion script first."
 
         # Load the embeddings model
+        MODEL_NAME = "BAAI/bge-large-en-v1.5"
+        CACHE_DIR = HF_HOME
+
         print("Initializing Hugging Face embeddings model...")
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME, cache_folder=CACHE_DIR)
 
         # Load the vector store from disk
         print("Loading vector store from disk...")
         db = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
-        # Initialize Hugging Face LLM pipeline
+        # Display index information
+        print(f"✓ Loaded FAISS index: {db.index.ntotal} vectors, dimension {db.index.d}")
+        index_type = type(db.index).__name__
+        print(f"✓ Index type: {index_type}")
+
+        # If it's an IVF index, show search parameters
+        if hasattr(db.index, 'nprobe'):
+            print(f"✓ IVF search parameters: nprobe={db.index.nprobe}, nlist={db.index.nlist}")
+            print(f"✓ Search efficiency: ~{100 * db.index.nprobe / db.index.nlist:.1f}% of index searched per query")
+
+        # Initialize Hugging Face LLM pipeline with GPU optimization
         print("Initializing Hugging Face LLM pipeline...")
 
-        # Load local text generation model
-        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+        print(f"Loading Qwen model from {LLM_LOCAL_DIR} with extended context...")
+        print("⚡ Applying optimizations:")
+        print("  - device_map='auto' for multi-GPU")
+        print("  - dtype=torch.float16 for 2x speed")
+        print("  - use_cache=True for faster generation")
+
+        model_kwargs = {
+            "trust_remote_code": True,
+            "dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
+            "device_map": "auto" if torch.cuda.is_available() else None,
+            "low_cpu_mem_usage": True,
+            "use_cache": True,
+        }
+
+        # Try Flash Attention 2 if available
+        try:
+            model_kwargs["attn_implementation"] = "flash_attention_2"
+            model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
+            print("  ✓ Flash Attention 2 enabled")
+        except Exception as e:
+            print(f"  ⚠ Flash Attention 2 not available: {e}")
+            model_kwargs.pop("attn_implementation", None)
+            model = AutoModelForCausalLM.from_pretrained(LLM_LOCAL_DIR, **model_kwargs)
+
+        # Optional BetterTransformer
+        try:
+            from optimum.bettertransformer import BetterTransformer
+            print("  - Applying BetterTransformer...")
+            model = BetterTransformer.transform(model)
+            print("  ✓ BetterTransformer applied successfully")
+        except Exception as e:
+            print(f"  ⚠ BetterTransformer not available: {e}")
+
+        # ✅ Use Qwen2.5-7B-Instruct for text generation
+        generator = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            max_new_tokens=512,
+            temperature=0.7,
+            top_p=0.9,
+            do_sample=True,
+            return_full_text=False,
+        )
+
+        # Wrap the pipeline
         llm = TruncatingHuggingFacePipeline(generator, tokenizer, MAX_TOKENS)
 
         print("Chatbot chain initialized successfully.")
         print("DB initialized:", db)
         print("LLM initialized:", llm)
+        print(f"Model loaded with device_map='auto' for optimal GPU utilization")
+        print(f"Context length configured for: {MAX_TOKENS} tokens (~15k-20k words)")
+        if device.startswith("cuda"):
+            gpu_id = int(device.split(":")[-1])
+            print(f"GPU memory allocated: {torch.cuda.memory_allocated(gpu_id) / 1024 ** 3:.2f} GB")
+            print(f"GPU memory reserved: {torch.cuda.memory_reserved(gpu_id) / 1024 ** 3:.2f} GB")
+        # Initialize conversation history with dynamic welcome prompt
+        try:
+            metadata_path = os.path.join("faiss_data", "metadata.json")
+            if os.path.exists(metadata_path):
+                with open(metadata_path, "r") as f:
+                    m = json.load(f)
+                topic = m.get("base_topic", "the ingested content")
+            else:
+                topic = "the ingested content"
+            greeting = f"Hello! I'm your Docker RAG chatbot. Ask me anything about {topic}."
+            conversation_history.clear()
+            conversation_history.append({"role": "assistant", "content": greeting})
+        except Exception as e:
+            print(f"Failed to initialize conversation history greeting: {e}")
+
         return None  # No error
     except Exception as e:
         print(f"Error during chain initialization: {e}")
@@ -89,37 +266,118 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/topic", methods=["GET"])
+def get_topic():
+    """Returns the topic/subject of the ingested content."""
+    try:
+        metadata_path = os.path.join("faiss_data", "metadata.json")
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+            return jsonify({
+                "topic": metadata.get("base_topic", "the ingested content"),
+                "domain": metadata.get("domain", ""),
+                "url_count": len(metadata.get("all_urls", []))
+            })
+        else:
+            return jsonify({
+                "topic": "the ingested content",
+                "domain": "",
+                "url_count": 0
+            })
+    except Exception as e:
+        print(f"Error loading topic metadata: {e}")
+        return jsonify({
+            "topic": "the ingested content",
+            "domain": "",
+            "url_count": 0
+        })
+
+
 @app.route("/query", methods=["POST"])
 def query():
     try:
-        print("Entered /query endpoint")
-        global db, llm  # Remove qa_chain
+        global db, llm, conversation_history
 
-        print("Request JSON:", request.json)
+        start_time = time.time()  # Fix: Define start_time at the beginning
+        print("\n" + "=" * 80)
+        print("Entered /query endpoint")
         user_query = request.json.get("query")
-        print("User query:", user_query)
         if not user_query:
             return jsonify({"error": "No query provided"}), 400
 
-        retrieved_docs = db.similarity_search(user_query)
-        for doc in retrieved_docs:
-            print(doc.page_content)
+        # append user message to history
+        conversation_history.append({"role": "user", "content": user_query})
 
-        # Build prompt with retrieved context
-        context = "\n".join([doc.page_content for doc in retrieved_docs])
-        template = "Context:\n{context}\n\nAnswer the question: {user_query}"
+        # build history string and truncate to last HISTORY_MAX_TOKENS tokens
+        retrieval_start = time.time()
+        history_text = "\n".join(
+            [f"User: {msg['content']}" if msg['role'] == "user" else f"Assistant: {msg['content']}" for msg in
+             conversation_history])
+        history_tokens = tokenizer.encode(history_text)
+        if len(history_tokens) > HISTORY_MAX_TOKENS:
+            history_tokens = history_tokens[-HISTORY_MAX_TOKENS:]
+            history_text = tokenizer.decode(history_tokens)
+
+        # Retrieve context documents
+        retrieved_docs = db.similarity_search(user_query, k=11)
+        for i, d in enumerate(retrieved_docs[:3]):
+            print(f"[DOC {i}] {d.page_content[:300]}")
+        context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+
+        # truncate context if needed
+        context_tokens = tokenizer.encode(context)
+        if len(context_tokens) > MAX_TOKENS - HISTORY_MAX_TOKENS - 1000:
+            context_tokens = context_tokens[:MAX_TOKENS - HISTORY_MAX_TOKENS - 1000]
+            context = tokenizer.decode(context_tokens)
+
+        retrieval_time = time.time() - retrieval_start
+        print(f"⏱️  Retrieval time: {retrieval_time:.2f}s")
+
+        # Prompt with history and context
+        template = """You are a helpful AI assistant. Use the conversation history and the following context to answer the question concisely.
+
+Conversation history:
+{history}
+
+Context:
+{context}
+
+Instructions:
+- Answer using only the context and history.
+- Do not mention, reference, or describe the context itself.
+- Do not explain how the answer was created.
+- Do not include notes, disclaimers, or meta-commentary of any kind.
+- If the context does not contain relevant information, say exactly: "I don't know."
+
+Question: {user_query}
+
+Answer:"""
         prompt = PromptTemplate.from_template(template)
 
-        chain = LLMChain(llm=llm, prompt=prompt)
-        print("Prompt input:", {"context": context, "user_query": user_query})
-        answer = chain.run({"context": context, "user_query": user_query})
-        print(answer)
-        if not answer:
-            return jsonify({"error": "No answer could be generated."}), 500
-        return jsonify({"answer": answer})
+        chain = prompt | llm
+
+        generation_start = time.time()
+        print(
+            f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
+        answer = chain.invoke({"history": history_text, "context": context, "user_query": user_query})
+        generation_time = time.time() - generation_start
+
+        total_time = time.time() - start_time
+
+        print(f"⏱️  Generation time: {generation_time:.2f}s")
+        print(f"⏱️  Total time: {total_time:.2f}s")
+        print(f"📝 Response length: {len(answer)} chars")
+        print("=" * 80 + "\n")
+
+        # append assistant response to history
+        conversation_history.append({"role": "assistant", "content": answer})
+
+        return jsonify({
+            "answer": answer
+        })
     except Exception as e:
         import traceback
-        print("Error processing query (outer):")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 

@@ -1,0 +1,5 @@
+# Don't include downloaded models
+models_cache/
+faiss_data/
+
+
