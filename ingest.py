@@ -119,7 +119,6 @@ def crawl_and_embed(base_url, link_limit=10):
     embeddings = HuggingFaceEmbeddings(
         model_name=MODEL_NAME,
         cache_folder=CACHE_DIR,
-        model_kwargs={"device": "cuda"},
     )
 
     # 5️⃣ Build and save FAISS index
@@ -127,7 +126,7 @@ def crawl_and_embed(base_url, link_limit=10):
     db = FAISS.from_documents(safe_texts, embeddings)
 
     # Save the vector store to a local file
-    FAISS_INDEX_PATH = os.path.join("faiss_data", "faiss_index")
+    FAISS_INDE  X_PATH = os.path.join("faiss_data", "faiss_index")
     os.makedirs("faiss_data", exist_ok=True)
     db.save_local(FAISS_INDEX_PATH)
 
