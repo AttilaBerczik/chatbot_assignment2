@@ -27,7 +27,7 @@ ENV PYTHONUNBUFFERED=1 \
     MODELS_CACHE_DIR=/app/models_cache
 
 # Expose the port the Flask app runs on
-EXPOSE 5002
+EXPOSE 5010
 
 # Run the application
 CMD ["python", "-u", "app.py"]
