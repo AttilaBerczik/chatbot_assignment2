@@ -250,9 +250,9 @@ def query():
         print(f"⏱️  Retrieval time: {retrieval_time:.2f}s")
 
         # Prompt with history and context
-        template = """You are a precise and factual AI assistant.
-
-        Use the following context and conversation history to answer the user's question in a **single, concise paragraph**.
+        template = """You are a retrieval-based assistant. 
+        Answer questions **only** using the provided context. 
+        If the context does not contain information that can directly answer the question, reply exactly with: "I don't know."
 
         Conversation history:
         {history}
