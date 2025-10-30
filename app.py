@@ -247,24 +247,24 @@ def query():
         print(f"⏱️  Retrieval time: {retrieval_time:.2f}s")
 
         # Prompt with history and context
-        template = """You are a helpful AI assistant. Use the conversation history and the following context to answer the question concisely.
+        template = """You are a knowledgeable AI assistant. Use the conversation history and the following retrieved context to answer the question.
 
-Conversation history:
-{history}
+        Conversation history:
+        {history}
 
-Context:
-{context}
+        Relevant context:
+        {context}
 
-Instructions:
-- Answer using only the context and history.
-- Do not mention, reference, or describe the context itself.
-- Do not explain how the answer was created.
-- Do not include notes, disclaimers, or meta-commentary of any kind.
-- If the context does not contain relevant information, say exactly: "I don't know."
+        Guidelines:
+        - Provide a single, clear, factual answer.
+        - If the context partially answers the question, summarize what is relevant.
+        - Only say "I don't know." if there is absolutely no relevant information.
+        - Do NOT repeat "I don't know" multiple times.
+        - Keep the answer concise and natural.
 
-Question: {user_query}
+        Question: {user_query}
 
-Answer:"""
+        Answer:"""
         prompt = PromptTemplate.from_template(template)
 
         # Use RunnableSequence (prompt | llm) instead of deprecated LLMChain
