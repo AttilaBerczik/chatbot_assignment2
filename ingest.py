@@ -119,7 +119,7 @@ def crawl_and_embed(base_url, link_limit=10):
     embeddings = HuggingFaceEmbeddings(
         model_name=MODEL_NAME,
         cache_folder=CACHE_DIR,
-        model_kwargs={"device": "cuda"},
+        #model_kwargs={"device": "cuda"},
     )
 
     # 5️⃣ Build and save FAISS index
@@ -158,4 +158,4 @@ def crawl_and_embed(base_url, link_limit=10):
 if __name__ == "__main__":
     # Example: crawl any site — not just Wikipedia
     base_url = "https://en.wikipedia.org/wiki/Norway"  # change this to any site
-    crawl_and_embed(base_url, link_limit=50)
+    crawl_and_embed(base_url, link_limit=10)
