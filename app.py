@@ -261,6 +261,7 @@ def query():
         {context}
 
         Guidelines:
+        - Answer using only the context and history.
         - Give one clear, factual answer in natural language.
         - If the context has duplicates or repeats, summarize once.
         - Do not restate the same fact multiple times.
