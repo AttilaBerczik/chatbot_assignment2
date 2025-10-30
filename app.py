@@ -235,7 +235,10 @@ def query():
 
         # Retrieve context documents
         retrieved_docs = db.similarity_search(user_query, k=10)
-        context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+        raw_contexts = [doc.page_content.strip() for doc in retrieved_docs]
+        # remove duplicates & near-duplicates
+        unique_contexts = list(dict.fromkeys(raw_contexts))
+        context = "\n\n".join(unique_contexts[:5])  # keep top 5 max
 
         # truncate context if needed
         context_tokens = tokenizer.encode(context)
@@ -247,7 +250,9 @@ def query():
         print(f"⏱️  Retrieval time: {retrieval_time:.2f}s")
 
         # Prompt with history and context
-        template = """You are a knowledgeable AI assistant. Use the conversation history and the following retrieved context to answer the question.
+        template = """You are a precise and factual AI assistant.
+
+        Use the following context and conversation history to answer the user's question in a **single, concise paragraph**.
 
         Conversation history:
         {history}
@@ -256,11 +261,12 @@ def query():
         {context}
 
         Guidelines:
-        - Provide a single, clear, factual answer.
-        - If the context partially answers the question, summarize what is relevant.
-        - Only say "I don't know." if there is absolutely no relevant information.
-        - Do NOT repeat "I don't know" multiple times.
-        - Keep the answer concise and natural.
+        - Give one clear, factual answer in natural language.
+        - If the context has duplicates or repeats, summarize once.
+        - Do not restate the same fact multiple times.
+        - Only say "I don't know." if there is truly no relevant information.
+        - Never include phrases like "The provided context" or "Based on the context".
+        - Keep the answer under 5 sentences.
 
         Question: {user_query}
 
@@ -274,6 +280,21 @@ def query():
         print(
             f"🤖 Generating response (context: {len(context_tokens)} tokens, history: {len(history_tokens)} tokens)...")
         answer = chain.invoke({"history": history_text, "context": context, "user_query": user_query})
+
+        # --- post-processing cleanup ---
+        import re
+
+        # Remove repeated phrases
+        answer = re.sub(r'(\b\w+\b)( \1\b)+', r'\1', answer)  # e.g., "Norway Norway" -> "Norway"
+        answer = re.sub(r'(I don[’\']?t know\.)(\s+\1)+', r'\1', answer, flags=re.IGNORECASE)
+        answer = re.sub(r'\b(?:Based on|According to|The context|The provided context)[^\.]*\.', '', answer)
+        answer = re.sub(r'\s+', ' ', answer).strip()
+
+        # Limit overly long responses
+        sentences = re.split(r'(?<=[.!?])\s+', answer)
+        if len(sentences) > 5:
+            answer = ' '.join(sentences[:5])
+
         generation_time = time.time() - generation_start
 
         total_time = time.time() - start_time
