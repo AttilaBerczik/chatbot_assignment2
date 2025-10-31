@@ -252,7 +252,6 @@ def query():
         # Prompt with history and context
         template = """You are a retrieval-based assistant. 
         Answer questions **only** using the provided context. 
-        If the context does not contain information that can directly answer the question, reply exactly with: "I don't know."
 
         Conversation history:
         {history}
