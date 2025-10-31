@@ -16,7 +16,7 @@ from tqdm import tqdm
 # Set a polite User-Agent
 os.environ["USER_AGENT"] = "MyLangchainBot/1.0 (+https://example.com)"
 
-def get_internal_links(base_url, limit=10):
+def get_internal_links(base_url, limit):
     """Extract internal links from any website (same domain only)."""
     try:
         response = requests.get(base_url, headers={"User-Agent": os.environ["USER_AGENT"]}, timeout=10)
@@ -44,7 +44,7 @@ def get_internal_links(base_url, limit=10):
     return list(links)
 
 
-def crawl_and_embed(base_url, link_limit=10):
+def crawl_and_embed(base_url, link_limit):
     """Crawl a website and create FAISS embeddings."""
     # 1️⃣ Get related internal links
     related_links = get_internal_links(base_url, limit=link_limit)
@@ -158,4 +158,4 @@ def crawl_and_embed(base_url, link_limit=10):
 if __name__ == "__main__":
     # Example: crawl any site — not just Wikipedia
     base_url = "https://en.wikipedia.org/wiki/Norway"  # change this to any site
-    crawl_and_embed(base_url, link_limit=10)
+    crawl_and_embed(base_url, link_limit=100)
