@@ -264,7 +264,6 @@ def query():
         - Give one clear, factual answer in natural language.
         - If the context has duplicates or repeats, summarize once.
         - Do not restate the same fact multiple times.
-        - Only say "I don't know." if there is truly no relevant information.
         - Never include phrases like "The provided context" or "Based on the context".
         - Keep the answer under 5 sentences.
 
