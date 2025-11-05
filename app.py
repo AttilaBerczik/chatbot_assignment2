@@ -261,6 +261,8 @@ def query():
         {context}
 
         Guidelines:
+        - Only answer if the context contains relevant information.
+        - If the context does NOT provide a clear answer, respond exactly with: "I don't know."
         - Use the history and context only to inform your reasoning.
         - Never use information not found in the context.
         - Never include explanations of how you derived your answer.
