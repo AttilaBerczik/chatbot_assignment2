@@ -260,16 +260,16 @@ def query():
         {context}
 
         Guidelines:
-        - Answer using only the context and history.
+        - Use the history and context only to inform your reasoning.
+        - Do NOT include any of the following in your output: "User:", "Assistant:", or "Answer:".
         - Give one clear, factual answer in natural language.
-        - If the context has duplicates or repeats, summarize once.
-        - Do not restate the same fact multiple times.
-        - Never include phrases like "The provided context" or "Based on the context".
+        - Summarize duplicate facts once.
         - Keep the answer under 5 sentences.
 
         Question: {user_query}
 
-        Answer:"""
+        Final answer:"""
+
         prompt = PromptTemplate.from_template(template)
 
         # Use RunnableSequence (prompt | llm) instead of deprecated LLMChain
