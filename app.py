@@ -252,6 +252,7 @@ def query():
         # Prompt with history and context
         template = """You are a retrieval-based assistant. 
         Answer questions **only** using the provided context. 
+        Do not use any external knowledge or assumptions outside of the provided context.
 
         Conversation history:
         {history}
@@ -261,6 +262,9 @@ def query():
 
         Guidelines:
         - Use the history and context only to inform your reasoning.
+        - Never use information not found in the context.
+        - Never include explanations of how you derived your answer.
+        - Keep the answer short and factual
         - Do NOT include any of the following in your output: "User:", "Assistant:", or "Answer:".
         - Give one clear, factual answer in natural language.
         - Summarize duplicate facts once.
