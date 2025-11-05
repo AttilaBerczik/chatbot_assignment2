@@ -157,5 +157,5 @@ def crawl_and_embed(base_url, link_limit):
 
 if __name__ == "__main__":
     # Example: crawl any site — not just Wikipedia
-    base_url = "https://en.wikipedia.org/wiki/Norway"  # change this to any site
+    base_url = "https://www.3dnanoscopy.com/"  # change this to any site
     crawl_and_embed(base_url, link_limit=100)
