@@ -37,7 +37,7 @@ docker run -it --rm \
   llm-chatbot-app python -u ingest.py
 ```
 
-### 5. Run the App
+### 5. Run the App with docker
 
 ```bash
 docker run --gpus all -p 5000:5000 \
@@ -46,6 +46,7 @@ docker run --gpus all -p 5000:5000 \
   -v ~/chatbot_assignment2/models_cache:/app/models_cache \
   llm-chatbot-app
 ```
+
 
 ### 6. Access the App
 
